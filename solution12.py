@@ -20,42 +20,33 @@ class Submission(SubmissionSpec12):
         words_frequency =  defaultdict(int)
         tags_frequency  = defaultdict(int)
         tag_word_frequency = defaultdict(lambda: defaultdict(int))
-      
-        
+       
         for sentence in annotated_sentences:
             for (word, tag) in sentence:
                 words_frequency[word] += 1
                 tags_frequency[tag] += 1
                 tag_word_frequency[tag][word] += 1
 
-
-        # without smoothing
-        # estimate_emission_probabilites = defaultdict(lambda: defaultdict(float))
-        # for (tag, words) in tag_word_frequency.items():
-        #     for (word, count) in words.items():
-        #         estimate_emission_probabilites[tag][word] = count / tags_frequency[tag]
-        # end without smoothing
-
-        # smoothing add-1
-        self.len_words = len(words_frequency)
+        # calculate estimate_emission_probabilites with smoothing add-delta (delta = 0.05)
+        delta = 0.05
+        len_words = len(words_frequency)
         tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
+
         estimate_emission_probabilites = dict()
         for tag in tag_set:
-            estimate_emission_probabilites[tag] = defaultdict(lambda: 1 / (tags_frequency[tag] + self.len_words))
+            estimate_emission_probabilites[tag] = defaultdict(lambda: delta / (tags_frequency[tag] + delta * len_words))
 
         for (tag, words) in tag_word_frequency.items():
             for (word, count) in words.items():
-                estimate_emission_probabilites[tag][word] = (count + 1) / (tags_frequency[tag] + self.len_words)
-        # end smoothing add-1
-        
+                estimate_emission_probabilites[tag][word] = (count + delta) / (tags_frequency[tag] + delta * len_words)
+      
         self.estimate_emission_probabilites = estimate_emission_probabilites
 
     
     def _estimate_transition_probabilites(self, annotated_sentences):
         tags_frequency  = defaultdict(int)
         tags_pair_frequency = defaultdict(lambda: defaultdict(int))
-        estimate_transition_probabilites = defaultdict(lambda: defaultdict(float))
-        
+      
         for sentence in annotated_sentences:
             prev_tag = '<s>'
             tags_frequency[prev_tag] += 1
@@ -65,9 +56,18 @@ class Submission(SubmissionSpec12):
                 prev_tag = tag
             tags_pair_frequency[prev_tag]['<e>'] += 1
 
+        # calculate estimate_transition_probabilites with smoothing add-delta (delta = 0.05)
+        delta = 0.05
+        len_tags = len(tags_frequency)
+        tag_set = '<s> ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
+        
+        estimate_transition_probabilites = dict()
+        for tag in tag_set:
+             estimate_transition_probabilites[tag] = defaultdict(lambda: delta / (tags_frequency[tag] + delta * len_tags))
+
         for (prev_tag, tags) in tags_pair_frequency.items():
-            for (tag, count) in tags.items():
-                estimate_transition_probabilites[prev_tag][tag]= count / tags_frequency[prev_tag]
+             for (tag, count) in tags.items():
+                estimate_transition_probabilites[prev_tag][tag] = (count + delta) / (tags_frequency[prev_tag] + delta * len_tags)
         
         self.estimate_transition_probabilites = estimate_transition_probabilites
                      
@@ -79,52 +79,58 @@ class Submission(SubmissionSpec12):
  
         return self 
 
-
-
-    def predict(self, sentence):
-        prediction = []
-
-        tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
-
-        viterbi = dict.fromkeys(tag_set, dict.fromkeys(sentence))
-        back_pointer = dict.fromkeys(tag_set, dict.fromkeys(sentence))
+    
+    def _viterbi(self, observations, state_graph):
+        result = []
+        len_observations = len(observations)
+        
+        viterbi = defaultdict(dict)
+        back_pointer = defaultdict(dict)
 
         estimate_transition_probabilites = self.estimate_transition_probabilites
         estimate_emission_probabilites = self.estimate_emission_probabilites
 
-        first_word = sentence[0]
-
-        for state in tag_set:
-            viterbi[state][0] = estimate_transition_probabilites['<s>'][state] * estimate_emission_probabilites[state][first_word]
+        for state in state_graph:
+            viterbi[state][0] = estimate_transition_probabilites['<s>'][state] * estimate_emission_probabilites[state][observations[0]]
             back_pointer[state][0]='<s>'
         
-        for i in range(1,len(sentence)):
-            word = sentence[i]
-            prev_word = sentence[i-1]
+        for time_step in range(1,len_observations):
+            observation = observations[time_step]
+            prev_observation = observations[time_step-1]
             _dict = {}
-            for state in tag_set:
-                for _state in tag_set:
-                    _dict[_state] = viterbi[_state][i-1] * estimate_transition_probabilites[_state][state] * estimate_emission_probabilites[state][word]
-                maximum = max(zip(_dict.values(), _dict.keys()))
-                viterbi[state][i] = maximum[0]
-                back_pointer[state][i]=maximum[1]
-
-        word = sentence[len(sentence)-1]
+            for state in state_graph:
+                for _state in state_graph:
+                    _dict[_state] = viterbi[_state][time_step-1] * estimate_transition_probabilites[_state][state] * estimate_emission_probabilites[state][observation]
+                max_prob = max(zip(_dict.values(), _dict.keys()))
+                viterbi[state][time_step] = max_prob[0]
+                back_pointer[state][time_step]=max_prob[1]
+      
         _dict = {}
-        for _state in tag_set:
-            _dict[_state] = viterbi[_state][len(sentence)-1] 
-        maximum = max(zip(_dict.values(), _dict.keys()))
-        best_path_prob = maximum[0]
-        best_path_pointer = maximum[1]
+        for _state in state_graph:
+            _dict[_state] = viterbi[_state][len_observations-1] 
+        max_prob = max(zip(_dict.values(), _dict.keys()))
+        best_path_prob = max_prob[0]
+        best_path_pointer = max_prob[1]
     
         pointer = best_path_pointer
-        index = len(sentence) - 1
+        index = len_observations - 1
 
         while pointer != '<s>':
-            prediction = [pointer] + prediction
+            result = [pointer] + result
             pointer = back_pointer[pointer][index]
             index -= 1
         
+        return result
+
+
+
+    def predict(self, sentence):
+        prediction = []
+        
+        tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
+
+        prediction = self._viterbi(sentence ,tag_set)
+
         assert (len(prediction) == len(sentence))
         return prediction
             
