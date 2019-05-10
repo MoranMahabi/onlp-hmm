@@ -53,18 +53,28 @@ def _evaluate(tagger, test_set):
         prediction = predictions[sentence_idx]
         gold       = list(map(lambda entry: entry[1], test_set[sentence_idx]))
         
-        segments += len(sentence)
+        #segments += len(sentence)
+        segments += 1
                     
         if prediction is None:
             failed_sentences += 1
         else:
-            for idx in range(len(sentence)):
-                segment = sentence[idx]
-                segment_prediction = prediction[idx]
-                segment_gold       = gold[idx]
+            c = 0
+            for segment_prediction in prediction:
+                 if segment_prediction == gold:
+                     c += 1
+                     if(c == 2):
+                         print('-----------------------------------------------------------')
+                     correct += 1
+                     
+            
+            # for idx in range(len(sentence)):
+            #     segment = sentence[idx]
+            #     segment_prediction = prediction[idx]
+            #     segment_gold       = gold[idx]
                 
-                if segment_prediction == segment_gold:
-                    correct += 1
+            #     if segment_prediction == segment_gold:
+            #         correct += 1
     
     token_accuracy = correct / segments
     print(f'sentences:        {len(test_set)}')
