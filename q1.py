@@ -30,7 +30,7 @@ class Submission(SubmissionSpec12):
                 tag_word_frequency[tag][word] += 1
 
         # calculate estimate_emission_probabilites with smoothing add-delta (delta = 0.05)
-        delta = 0.05
+        delta = 0.01
         len_words = len(words_frequency)
         tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
 
@@ -59,7 +59,7 @@ class Submission(SubmissionSpec12):
             tags_pair_frequency[prev_tag]['<e>'] += 1
 
         # calculate estimate_transition_probabilites with smoothing add-delta (delta = 0.05)
-        delta = 0.05
+        delta = 0.01
         len_tags = len(tags_frequency)
         tag_set = '<s> ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
         
@@ -120,6 +120,7 @@ class Submission(SubmissionSpec12):
             result = [pointer] + result
             pointer = back_pointer[pointer][index]
             index -= 1
+        
         
         return result
 

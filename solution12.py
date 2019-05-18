@@ -16,6 +16,56 @@ from submission_specs.SubmissionSpec12 import SubmissionSpec12
 
 
 class Submission(SubmissionSpec12):
+
+    # def deleted_interpolation(self, annotated_sentences):
+    #     unigrms  = defaultdict(int)
+    #     bigrams =  defaultdict(int)
+    #     trigrams =  defaultdict(int)
+
+    #     for sentence in annotated_sentences:
+    #         prev_prev_tag = '<s>'
+    #         prev_tag = '<s>'
+    #         unigrms[('<s>')] += 1
+    #         bigrams[('<s>', '<s>')] += 1
+
+    #         for (word, tag) in sentence:
+    #             unigrms[(tag)] +=1
+    #             bigrams[(prev_tag, tag)] += 1
+    #             trigrams[(prev_prev_tag, prev_tag, tag)] += 1 
+    #             prev_prev_tag = prev_tag
+    #             prev_tag = tag
+    #         bigrams[(prev_tag, '<e>')] += 1
+    #         trigrams[(prev_prev_tag, prev_tag, '<e>')] += 1
+        
+    #     lambda1 = lambda2 = lambda3 = 0
+    #     for (t1, t2, t3) in trigrams.items():
+    #           v = trigrams[(t1, t2, t3)]
+    #           if v > 0:
+    #               try:
+    #                   c1 = float(v-1)/(bigrams[(t1, t2)]-1)
+    #                   except ZeroDivisionError:
+    #             c1 = 0
+    #         try:
+    #             c2 = float(bigrams[(t2, t3)]-1)/(unigrms[(t2)]-1)
+    #         except ZeroDivisionError:
+    #             c2 = 0
+    #         try:
+    #             c3 = float(unigrams[(t3)]-1)/(len(unigrams)-1)
+    #         except ZeroDivisionError:
+    #             c3 = 0
+
+    #         k = np.argmax([c1, c2, c3])
+    #         if k == 0:
+    #             lambda3 += v
+    #         if k == 1:
+    #             lambda2 += v
+    #         if k == 2:
+    #             lambda1 += v
+
+    # weights = [lambda1, lambda2, lambda3]
+    # norm_w = [float(a6)/sum(weights) for a in weights]
+    # return norm_w
+
     ''' a contrived poorely performing solution for question one of this Maman '''
     
     def _estimate_emission_probabilites(self, annotated_sentences):
@@ -30,7 +80,7 @@ class Submission(SubmissionSpec12):
                 tag_word_frequency[tag][word] += 1
 
         # calculate estimate_emission_probabilites with smoothing add-delta (delta = 0.05)
-        delta = 0.05
+        delta = 0.1
         len_words = len(words_frequency)
         tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
 
@@ -44,8 +94,11 @@ class Submission(SubmissionSpec12):
       
         self.estimate_emission_probabilites = estimate_emission_probabilites
 
+
+
       
     # def _estimate_transition_probabilites(self, annotated_sentences):
+    #     weights = self.deleted_interpolation(annotated_sentences)
     #     tags_frequency  = defaultdict(int)
     #     tags_pair_frequency = defaultdict(lambda: defaultdict(int))
     #     tags_frequency_0 = defaultdict(int)
@@ -81,7 +134,9 @@ class Submission(SubmissionSpec12):
     #             estimate_transition_probabilites[(prev_prev_tag, prev_tag)][tag] = (count + delta) / (tags_frequency[(prev_prev_tag, prev_tag)] + delta * len_tags)
                        
     #     self.estimate_transition_probabilites = estimate_transition_probabilites
-        
+    
+
+    
     def _estimate_transition_probabilites(self, annotated_sentences):
         tags_frequency  = defaultdict(int)
         tags_pair_frequency = defaultdict(lambda: defaultdict(int))
@@ -96,17 +151,16 @@ class Submission(SubmissionSpec12):
             #tags_pair_frequency[prev_tag]['<e>'] += 1
 
         # calculate estimate_transition_probabilites with smoothing add-delta (delta = 0.05)
-        delta = 0.05
+        delta = 0.1
         len_tags = len(tags_frequency)
         tag_set = '<s> ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
         
         estimate_transition_probabilites = dict()
         for tag in tag_set:
-             estimate_transition_probabilites[tag] = defaultdict(lambda:  delta / (tags_frequency[tag] + delta * len_tags))
+             estimate_transition_probabilites[tag] = defaultdict(lambda: delta / (tags_frequency[tag] + delta * len_tags))
 
         for (prev_tag, tags) in tags_pair_frequency.items():
              for (tag, count) in tags.items():
-                #estimate_transition_probabilites[prev_tag][tag] = (count) / (tags_frequency[prev_tag])
                 estimate_transition_probabilites[prev_tag][tag] = (count + delta) / (tags_frequency[prev_tag] + delta * len_tags)
         
         self.estimate_transition_probabilites = estimate_transition_probabilites
@@ -142,7 +196,7 @@ class Submission(SubmissionSpec12):
 
    
 
-    def _viterbi_2(self, observations, state_graph, k=15):
+    def _viterbi_2(self, observations, state_graph, k=3):
         result = []
         len_observations = len(observations)
         
@@ -208,6 +262,8 @@ class Submission(SubmissionSpec12):
                 heapq.heappush(heap, (-prob, _state, _index + 1))
              count += 1
 
+        #print(observations)
+        #print(result)
         return result
     
     def _viterbi(self, observations, state_graph):
@@ -319,9 +375,11 @@ class Submission(SubmissionSpec12):
             result.append(back_pointer[(result[i+1], result[i])][k+2])
 
         result.reverse()
-      
+  
         return result
 
+
+   
 
 
     def predict(self, sentence):
@@ -330,14 +388,14 @@ class Submission(SubmissionSpec12):
         
         tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
 
-        prediction = self._viterbi(sentence ,tag_set)
-        assert (len(prediction) == len(sentence))
-        # prediction = self._viterbi_2(sentence ,tag_set)
+        # prediction = self._viterbi_3(sentence ,tag_set)
+        # assert (len(prediction) == len(sentence))
+        prediction = self._viterbi_2(sentence ,tag_set)
 
-        # assert (len(prediction) == 15)
+        assert (len(prediction) == 3)
 
-        # for predict in prediction:
-        #     assert (len(predict) == len(sentence))
+        for predict in prediction:
+            assert (len(predict) == len(sentence))
 
         return prediction
             
