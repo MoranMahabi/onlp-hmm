@@ -74,8 +74,8 @@ class Submission(SubmissionSpec12):
 
         for (prev_tag, tags) in tags_pair_frequency.items():
             for (tag, count) in tags.items():
-                estimate_transition_probabilites[prev_tag][tag] = (count + delta) / \
-                                                                  (tags_frequency[prev_tag] + delta * V)
+                estimate_transition_probabilites[prev_tag][tag] = (count + delta) / (
+                            tags_frequency[prev_tag] + delta * V)
 
         self.estimate_transition_probabilites = estimate_transition_probabilites
 
@@ -106,7 +106,7 @@ class Submission(SubmissionSpec12):
                         viterbi[state][time_step] = curr_prob
                         back_pointer[state][time_step] = prev_state
 
-        # termination step       
+        # termination step
         max_prob = float('-inf')
         for prev_state in state_graph:
             curr_prob = viterbi[prev_state][len_observations - 1]
