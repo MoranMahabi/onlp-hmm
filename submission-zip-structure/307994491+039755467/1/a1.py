@@ -21,7 +21,7 @@ class Submission(SubmissionSpec12):
         return prediction
 
     def _estimate_emission_probabilites(self, annotated_sentences):
-         words_frequency =  defaultdict(int)
+        words_frequency =  defaultdict(int)
         tags_frequency  = defaultdict(int)
         tag_word_frequency = defaultdict(lambda: defaultdict(int))
        

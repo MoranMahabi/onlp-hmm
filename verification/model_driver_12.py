@@ -31,7 +31,7 @@ def _safe_bulk_predict(tagger, sentences):
             
     return (predictions, failed_predictions)
     
-def _evaluate(tagger, test_set):
+def _evaluate1(tagger, test_set):
     ''' evaluates a given trained tagger, through a given test set '''
     
     print('predicting with the tagger ...')
@@ -70,7 +70,7 @@ def _evaluate(tagger, test_set):
 
     
 
-def _evaluate1(tagger, test_set):
+def _evaluate(tagger, test_set):
     ''' evaluates a given trained tagger, through a given test set '''
     
     print('predicting with the tagger ...')

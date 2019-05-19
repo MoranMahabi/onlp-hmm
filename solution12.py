@@ -17,9 +17,13 @@ from submission_specs.SubmissionSpec12 import SubmissionSpec12
 
 class Submission(SubmissionSpec12):
 
-
-    ''' a contrived poorely performing solution for question one of this Maman '''
     
+
+
+
+
+
+
     def _estimate_emission_probabilites(self, annotated_sentences):
         words_frequency =  defaultdict(int)
         tags_frequency  = defaultdict(int)
@@ -31,25 +35,25 @@ class Submission(SubmissionSpec12):
                 tags_frequency[tag] += 1
                 tag_word_frequency[tag][word] += 1
 
-        # calculate estimate_emission_probabilites with smoothing add-delta (delta = 0.05)
+        # calculate estimate_emission_probabilites with smoothing add-delta (delta = 0.001)
         delta = 0.001
-        len_words = len(words_frequency)
-        tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
+        V = len(words_frequency)
 
         estimate_emission_probabilites = dict()
-        for tag in tag_set:
-            estimate_emission_probabilites[tag] = defaultdict(lambda: delta / (tags_frequency[tag] + delta * len_words))
+
+        self.tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
+
+
+        for tag in self.tag_set:
+             # set default value for P(tag|word) for each tag
+            estimate_emission_probabilites[tag] = defaultdict(lambda: delta / (tags_frequency[tag] + delta * V))
 
         for (tag, words) in tag_word_frequency.items():
             for (word, count) in words.items():
-                estimate_emission_probabilites[tag][word] = (count + delta) / (tags_frequency[tag] + delta * len_words)
+                estimate_emission_probabilites[tag][word] = (count + delta) / (tags_frequency[tag] + delta * V)
       
         self.estimate_emission_probabilites = estimate_emission_probabilites
 
-
-
-
-    
     def _estimate_transition_probabilites(self, annotated_sentences):
         self.tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
         BOS = '<s>'
@@ -82,7 +86,54 @@ class Submission(SubmissionSpec12):
         
         self.estimate_transition_probabilites = estimate_transition_probabilites
 
+    def _viterbi(self, observations, state_graph):
+        BOS = '<s>'
+       
+        result = []
+        len_observations = len(observations)
+        viterbi = defaultdict(dict)
+        back_pointer = defaultdict(dict)
+        estimate_transition_probabilites = self.estimate_transition_probabilites
+        estimate_emission_probabilites = self.estimate_emission_probabilites
 
+        # initialization step
+        for state in state_graph:
+            viterbi[state][0] = estimate_transition_probabilites[BOS][state] * estimate_emission_probabilites[state][observations[0]]
+            back_pointer[state][0] = BOS
+
+        # recursion step
+        for time_step in range(1,len_observations):
+            observation = observations[time_step]
+            for state in state_graph:
+                max_prob = float('-inf')
+                for prev_state in state_graph:
+                    curr_prob = viterbi[prev_state][time_step-1] * estimate_transition_probabilites[prev_state][state] * estimate_emission_probabilites[state][observation]
+                    if(curr_prob > max_prob):
+                        max_prob = curr_prob
+                        viterbi[state][time_step] = curr_prob
+                        back_pointer[state][time_step]= prev_state
+
+        # termination step       
+        max_prob = float('-inf')
+        for prev_state in state_graph:
+            curr_prob = viterbi[prev_state][len_observations-1] 
+            if(curr_prob > max_prob):
+                max_prob = curr_prob
+                best_path_prob = curr_prob
+                best_path_pointer = prev_state
+
+        pointer = best_path_pointer
+        time_step = len_observations - 1
+
+        while pointer != BOS:
+            result = [pointer] + result
+            pointer = back_pointer[pointer][time_step]
+            time_step -= 1
+        
+        return result
+
+
+                     
     def train(self, annotated_sentences):  
         #self._test()
 
@@ -96,92 +147,25 @@ class Submission(SubmissionSpec12):
     
         return self 
 
+    def _test(self):
+          x = [2,5,1]
+          print(x)
+          heapq.heapify(x)
+          print(x)
+          print(heapq.heappop(x))
+          print(heapq.heappop(x))
+          print(heapq.heappop(x))
+          print(x)
+         
+          viterbi =  defaultdict(lambda: defaultdict(dict))
+          viterbi[0][0][0] = 5.5
+          viterbi[0][0][4] = 5.5
+          print(len(viterbi[0][0]))
+
 
    
+ 
 
-    def _viterbi_2(self, observations, state_graph, k=3):
-        BOS = '<s>'
-        EOS = '<e>'
-
-        result = []
-        len_observations = len(observations)
-        viterbi =  defaultdict(lambda: defaultdict(dict))
-        back_pointer = defaultdict(lambda: defaultdict(dict))
-        estimate_transition_probabilites = self.estimate_transition_probabilites
-        estimate_emission_probabilites = self.estimate_emission_probabilites
-
-        # initialization step
-        for state in state_graph:
-            viterbi[state][0][0] = estimate_transition_probabilites[BOS][state] * estimate_emission_probabilites[state][observations[0]]
-            back_pointer[state][0][0]=BOS
-        
-
-        # recursion step
-        for time_step in range(1,len_observations):
-            observation = observations[time_step]
-            for state in state_graph:
-                heap = []
-                for prev_state in state_graph:
-                    prob = viterbi[prev_state][time_step-1][0] * estimate_transition_probabilites[prev_state][state] * estimate_emission_probabilites[state][observation]
-                    heapq.heappush(heap, (-prob, prev_state, 0))
-                
-                count = 0
-                while len(heap) > 0 and count < k:
-                    curr = heapq.heappop(heap)
-                    prob = -curr[0]
-                    prev_state = curr[1]
-                    index = curr[2]
-                    viterbi[state][time_step][count] = prob
-                    back_pointer[state][time_step][count] = (prev_state, index)
-                    if(index + 1 < len(viterbi[prev_state][time_step-1])):
-                        prob = viterbi[prev_state][time_step-1][index + 1] * estimate_transition_probabilites[prev_state][state] * estimate_emission_probabilites[state][observation]
-                        heapq.heappush(heap, (-prob, prev_state, index + 1))
-                    count += 1
-
-        # termination step
-        heap = []
-
-        for state in state_graph:
-             prob = viterbi[state][len_observations-1][0] 
-             heapq.heappush(heap, (-prob, state, 0))
-
-        count = 0        
-        while len(heap) > 0 and count < k:
-             curr = heapq.heappop(heap)
-             prob = -curr[0]
-             state = curr[1]
-             index = curr[2]
-             best_path_prob = prob
-             best_path_pointer = (state, index)
-
-             pointer = best_path_pointer
-             time_step = len_observations - 1
-             path = []
-
-             while pointer != BOS:
-                 path = [pointer[0]] + path
-                 pointer = back_pointer[pointer[0]][time_step][pointer[1]]
-                 time_step -= 1
-            
-             result = result + [path]    
-
-             if(index + 1 < len(viterbi[state][len_observations-1])):
-                prob = viterbi[state][len_observations-1][index + 1]
-                heapq.heappush(heap, (-prob, state, index + 1))
-
-             count += 1
-
-        return result
-    
-    
-        
-
-
-
-
-  
-    
-   
 
 
     def predict(self, sentence):
@@ -190,14 +174,14 @@ class Submission(SubmissionSpec12):
         
         tag_set = 'ADJ ADP PUNCT ADV AUX SYM INTJ CCONJ X NOUN DET PROPN NUM VERB PART PRON SCONJ'.split()
 
-        # prediction = self._viterbi2(sentence ,tag_set)
-        # assert (len(prediction) == len(sentence))
-        prediction = self._viterbi_2(sentence ,tag_set)
+        prediction = self._viterbi(sentence ,tag_set)
+        assert (len(prediction) == len(sentence))
+        #prediction = self._viterbi_2(sentence ,tag_set)
 
-        assert (len(prediction) == 3)
+        # assert (len(prediction) == 3)
 
-        for predict in prediction:
-            assert (len(predict) == len(sentence))
+        # for predict in prediction:
+        #     assert (len(predict) == len(sentence))
 
         return prediction
             
