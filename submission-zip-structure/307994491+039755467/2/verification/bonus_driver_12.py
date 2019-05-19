@@ -31,6 +31,7 @@ def _safe_bulk_predict(tagger, sentences):
             
     return (predictions, failed_predictions)
     
+    
 def _evaluate(tagger, test_set):
     ''' evaluates a given trained tagger, through a given test set '''
     
@@ -68,49 +69,6 @@ def _evaluate(tagger, test_set):
     
     return sentence_accuracy
 
-    
-
-def _evaluate1(tagger, test_set):
-    ''' evaluates a given trained tagger, through a given test set '''
-    
-    print('predicting with the tagger ...')
-    
-    test_set_input = list(map(lambda sentence: list(map(lambda entry: entry[0], sentence)), test_set))
-    predictions, failed = _safe_bulk_predict(tagger, test_set_input)
-    
-    # evaluation
-    
-    print('computing the evaluation ...')
-    
-    segments = 0
-    correct = 0
-    failed_sentences = 0
-    
-    for sentence_idx in range(len(test_set)):
-        sentence   = test_set_input[sentence_idx]
-        prediction = predictions[sentence_idx]
-        gold       = list(map(lambda entry: entry[1], test_set[sentence_idx]))
-        
-        segments += len(sentence)
-                    
-        if prediction is None:
-            failed_sentences += 1
-        else:
-            for idx in range(len(sentence)):
-                segment = sentence[idx]
-                segment_prediction = prediction[idx]
-                segment_gold       = gold[idx]
-                
-                if segment_prediction == segment_gold:
-                    correct += 1
-    
-    token_accuracy = correct / segments
-    print(f'sentences:        {len(test_set)}')
-    print(f'failed sentences: {failed_sentences}')
-    print(f'token accuracy:   {token_accuracy:.4f}')   
-    
-    return token_accuracy   
-    
 
 def model_driver_12(tagger_class_under_test, annotated_sentences, passes=3, split=0.1):
 
