@@ -1,0 +1,13 @@
+Initialization step:
+ O(L) - a pass over all the labels
+
+Recursion step:
+ External loop - O(S) iterations - a pass over each sentence
+ Internal loops - O(L^2) iterations - for finding the best transition
+ Together - O(S * L^2)
+
+Termination step:
+ O(L) - a pass over all the labels
+ O(L) - for building the result
+
+All together - O(S * L^2)

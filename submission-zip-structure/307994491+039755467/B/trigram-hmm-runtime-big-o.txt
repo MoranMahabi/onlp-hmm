@@ -1,0 +1,13 @@
+Initialization step:
+ O(1) - as the best probability that we are in -1 time-step and (prev_state, curr_state) = (BOS, BOS) is 1
+
+Recursion step:
+ External loop - O(S) iterations - a pass over each sentence
+ Internal loops - O(L^3) iterations - for finding the best transition according to Trigram HMM
+ Together - O(S * L^3)
+
+Termination step:
+ O(L^2) - calculating best path back-pointer according to Trigram HMM
+ O(L) - for building the result
+
+All together - O(S * L^3)
