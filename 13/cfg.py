@@ -20,7 +20,7 @@ class CFG:
         #         VB-NP*PP-PP → PP PP          (prob=1)
 
         for parent_tag, rules in self.rules.copy().items():
-            for rule in rules.copy():
+            for rule, count in rules.copy().items():
                 if rule == self.TOTAL_MARK:
                     continue
                 rule_len = len(rule)
@@ -37,7 +37,7 @@ class CFG:
                     next_parent_tag = ''.join(new_derived)
                     derived = (rule[i], next_parent_tag)
                     if i == 0:
-                        self.add(curr_parent_tag, derived, self.rules[parent_tag][rule])
+                        self.add(parent_tag, derived, count)
                         self.remove(parent_tag, rule)
                     else:
                         self.add(curr_parent_tag, derived)
