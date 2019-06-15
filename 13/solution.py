@@ -15,8 +15,8 @@ class Submission(Spec):
             i = 0
             for bracketed_notation_tree in train_set:
                 i += 1
-                if i > 100:  # short-pass for debug
-                    break
+                # if i > 100:  # short-pass for debug
+                #     break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
                 q.append(node)
@@ -26,12 +26,16 @@ class Submission(Spec):
                     if len(children):
                         q.extend(children)
                         derived = tuple(c.tag for c in children)
-                        self.cfg.add(node.tag, derived)
+                        if len(children) == 1 and len(children[0].children) == 0:
+                           self.cfg.add(node.tag, derived, True)
+                        else:
+                           self.cfg.add(node.tag, derived, False)
 
         self.cfg.binarize()
+     
 
         self.cfg.validate()
-
+      
         #  Percolation
 
     def parse(self, sentence):
