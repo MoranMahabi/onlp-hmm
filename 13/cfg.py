@@ -1,5 +1,5 @@
 import copy
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 class CFG:
@@ -17,6 +17,27 @@ class CFG:
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
         self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
         del self.rules[parent][rule_index][derived]
+
+    def percolate(self):
+        worklist = deque()
+        done = set()
+        for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
+            for rule in lst[self.NON_TERMINAL_RULES].keys():
+                if len(rule) == 1:
+                    if parent_tag == rule[0]:
+                        self.remove(parent_tag, rule, False)
+                    else:
+                        worklist.append((parent_tag, rule[0]))
+        while worklist:
+            a, b = worklist.popleft()
+            for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
+                is_terminal = (index == self.TERMINAL_RULES)
+                for b_rule, count in self.rules[b][index].items():
+                    if not is_terminal and len(b_rule) == 1 and b_rule != a and (a, b) not in done:
+                        worklist.append((a, b_rule[0]))
+                    self.add(a, b_rule, is_terminal, count=count)
+            self.remove(a, (b,), False)
+            done.add((a, b))
 
     def binarize(self):
         # example
@@ -44,7 +65,7 @@ class CFG:
                         self.add(curr_parent_tag, derived, False, count)
                         self.remove(parent_tag, rule, False)
                     else:
-                        self.add(curr_parent_tag, False, derived)
+                        self.add(curr_parent_tag, derived, False)
 
                     curr_parent_tag = next_parent_tag
 
@@ -55,8 +76,14 @@ class CFG:
         print('----validate-----')
         res = True
         for tag, lst in self.rules.items():
-            _sum = sum(v for rule, v in lst[self.TERMINAL_RULES].items())
-            _sum = _sum + sum(v for rule, v in lst[self.NON_TERMINAL_RULES].items())
+            _sum = 0
+            for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
+                _sum += sum(v for rule, v in lst[index].items())
+
+            terminal_len_correct = all(len(r) == 1 for r in lst[self.TERMINAL_RULES].keys())
+            non_terminal_len_correct = all(len(r) == 2 for r in lst[self.NON_TERMINAL_RULES].keys())
+            assert terminal_len_correct, "Terminal rule length isn't 1"
+            assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
 
             if _sum != lst[self.TOTAL_MARK]:
                 print('------------- Failed ----------------')

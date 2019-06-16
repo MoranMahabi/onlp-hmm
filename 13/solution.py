@@ -27,16 +27,15 @@ class Submission(Spec):
                         q.extend(children)
                         derived = tuple(c.tag for c in children)
                         if len(children) == 1 and len(children[0].children) == 0:
-                           self.cfg.add(node.tag, derived, True)
+                            self.cfg.add(node.tag, derived, True)
                         else:
-                           self.cfg.add(node.tag, derived, False)
+                            self.cfg.add(node.tag, derived, False)
+
+        self.cfg.percolate()
 
         self.cfg.binarize()
-     
 
         self.cfg.validate()
-      
-        #  Percolation
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
