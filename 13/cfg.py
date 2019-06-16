@@ -1,28 +1,22 @@
-from collections import defaultdict
 import copy
+from collections import defaultdict
+
 
 class CFG:
-
     TERMINAL_RULES = 0
     NON_TERMINAL_RULES = 1
     TOTAL_MARK = 2
     rules = defaultdict(lambda: [defaultdict(int), defaultdict(int), 0])
 
     def add(self, tag, derived, is_terminal_rule, count=1):
-        if is_terminal_rule:
-             self.rules[tag][self.TERMINAL_RULES][derived] += count
-        else:
-             self.rules[tag][self.NON_TERMINAL_RULES][derived] += count
-        
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        self.rules[tag][rule_index][derived] += count
         self.rules[tag][self.TOTAL_MARK] += count
 
     def remove(self, parent, derived, is_terminal_rule):
-       if is_terminal_rule:
-           self.rules[parent][self.TOTAL_MARK] = self.rules[parent][self.TOTAL_MARK] - self.rules[parent][self.TERMINAL_RULES][derived]
-           del self.rules[parent][self.TERMINAL_RULES][derived]
-       else:
-           self.rules[parent][self.TOTAL_MARK] = self.rules[parent][self.TOTAL_MARK] - self.rules[parent][self.NON_TERMINAL_RULES][derived]
-           del self.rules[parent][self.NON_TERMINAL_RULES][derived]
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
+        del self.rules[parent][rule_index][derived]
 
     def binarize(self):
         # example
@@ -36,7 +30,7 @@ class CFG:
                 rule_len = len(rule)
                 if rule_len <= 2:  # Already binary, or unary
                     continue
-                
+
                 # insert '-' between two element in the rule
                 dashed = ['-'] * (rule_len * 2 - 1)
                 dashed[0::2] = list(rule)
@@ -63,10 +57,10 @@ class CFG:
         for tag, lst in self.rules.items():
             _sum = sum(v for rule, v in lst[self.TERMINAL_RULES].items())
             _sum = _sum + sum(v for rule, v in lst[self.NON_TERMINAL_RULES].items())
-           
+
             if _sum != lst[self.TOTAL_MARK]:
                 print('------------- Failed ----------------')
-                #print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
-                #print(tag_rules)
+                # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
+                # print(tag_rules)
 
-        #assert res
+        assert res
