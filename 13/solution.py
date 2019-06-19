@@ -1,24 +1,26 @@
+import pickle
 from collections import deque, defaultdict
 
 from cfg import CFG
 from spec import Spec
 from util.tree.builders import node_tree_from_sequence
-from util.transliteration import to_trans
 
-
-
-TOTAL_MARK = ''
+DEBUG = False
 
 
 class Submission(Spec):
     cfg = CFG()
 
-    def train(self, training_treebank_file='data/heb-ctrees.train'):
+    def train(self, training_treebank_file='data/heb-ctrees.gold'):
+        if DEBUG:
+            self.cfg = pickle.load(open("./pcfg.p", "rb"))
+            return
+
         with open(training_treebank_file, 'r') as train_set:
             i = 0
             for bracketed_notation_tree in train_set:
                 # i += 1
-                # if i > 5:  # short-pass for debug
+                # if i > 100:  # short-pass for debug
                 #      break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
@@ -34,14 +36,13 @@ class Submission(Spec):
                         else:
                             self.cfg.add(node.tag, derived, False)
 
-        
-
         self.cfg.binarize()
 
         self.cfg.percolate()
 
         self.cfg.validate()
 
+        pickle.dump(self.cfg, open("./pcfg.p", "wb"))
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
