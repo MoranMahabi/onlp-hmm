@@ -32,10 +32,10 @@ class CFG:
         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
             for rule in lst[self.NON_TERMINAL_RULES].keys():
                 if len(rule) == 1:
-                    if parent_tag == rule[0]:
-                        self.remove(parent_tag, rule, False)
-                        done.add((parent_tag, rule[0]))
-                    else:
+                    # if parent_tag == rule[0]:
+                    #     self.remove(parent_tag, rule, False)
+                    #     done.add((parent_tag, rule[0]))
+                    # else:
                         worklist.append((parent_tag, rule[0]))
         while worklist:
             a, b = worklist.popleft()
@@ -46,7 +46,7 @@ class CFG:
                        self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
                     if not is_terminal and len(b_rule) == 1:
                        self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
-                       if b_rule != a and (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
+                       if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
                        else:
                             self.remove(a, b_rule, is_terminal)

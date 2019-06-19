@@ -14,12 +14,8 @@ class Submission(Spec):
     cfg = CFG()
 
     def train(self, training_treebank_file='data/heb-ctrees.train'):
-        with open(training_treebank_file, 'r') as train_set:
-            i = 0
+        with open(training_treebank_file, 'r') as train_set:            
             for bracketed_notation_tree in train_set:
-                # i += 1
-                # if i > 5:  # short-pass for debug
-                #      break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
                 q.append(node)
@@ -42,76 +38,45 @@ class Submission(Spec):
 
         self.cfg.validate()
 
+       
+
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
-        print(sentence)
-
-
+      
         CKY = defaultdict(lambda: defaultdict(lambda : defaultdict(float)))
         BP = defaultdict(lambda: defaultdict(lambda : defaultdict()))
 
-        k = 0
-        print(len(sentence))
-        
-
         # initialization - lex rules
-        for i in range(0,len(sentence)):
-            found = False
+        for i in range(1,len(sentence)+1):
             for parent_tag, lst in self.cfg.rules.items():
               for rule, count in lst[self.cfg.TERMINAL_RULES].items():
-                  if(rule[0] == sentence[i]):
-                     CKY[i][i+1][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
-                     found = True
-            if found:
-                k = k + 1
-        
-
-        print(k)
-        
+                  if(rule[0] == sentence[i-1]):
+                     CKY[i][i][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
+                      
         # algorithm - gram rules
-        for length in range(2, len(sentence)):
-            for i in range(0, len(sentence)-length+1):
-                j = i + length
+        for length in range(1, len(sentence)):      
+            for i in range(1, len(sentence)-length+1):
                 _max = 0
                 _argmax = None
                 for parent_tag, lst in self.cfg.rules.items():
                     for rule, count in lst[self.cfg.NON_TERMINAL_RULES].items():
-                        for s in range(i+1, j):
-                            curr = count / lst[self.cfg.TOTAL_MARK] * CKY[i][s][rule[0]] * CKY[s+1][j][rule[1]]
-                            if(curr > _max):
-                                _max = curr
-                                _argmax = (parent_tag, rule)
-                    CKY[i][j][parent_tag] = _max
-                    BP[i][j][parent_tag] = _argmax
-        
-     
-
+                        for s in range(i, i+length):
+                           if(lst[self.cfg.TOTAL_MARK] != 0 and CKY[i][s][rule[0]] != 0 and CKY[s+1][i+length][rule[1]] != 0): 
+                              curr = (count / lst[self.cfg.TOTAL_MARK]) * CKY[i][s][rule[0]] * CKY[s+1][i+length][rule[1]]        
+                              if(curr > _max):
+                                 _max = curr
+                                 _argmax = (parent_tag, rule)
+                    CKY[i][i+length][parent_tag] = _max
+                    BP[i][i+length][parent_tag] = _argmax
+            
         return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
-
-
-
-
-
-        # for j in range(len(sentence)):
-        #   for parent_tag, lst in self.cfg.rules.items():
-        #     for rule, count in lst[self.cfg.TERMINAL_RULES].items():
-        #         if()
-        #         table[j][j+1][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
-        
-        #   for i in range(j-1,-1,-1):
-        #       for k in range(i+1, j):
-        #          for parent_tag, lst in self.cfg.rules.items():
-        #               for rule, count in lst[self.cfg.NON_TERMINAL_RULES].items():
-
-
-
-
-        
 
     def write_parse(self, sentences, output_treebank_file='output/predicted.txt'):
         ''' function writing the parse to the output file '''
+      
         with open(output_treebank_file, 'w') as f:
             for sentence in sentences:
                 f.write(self.parse(sentence))
                 f.write('\n')
+
