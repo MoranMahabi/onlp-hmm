@@ -3,6 +3,7 @@ from collections import deque, defaultdict
 
 from cfg import CFG
 from spec import Spec
+from util import transliteration
 from util.tree.builders import node_tree_from_sequence
 
 DEBUG = False
@@ -54,7 +55,7 @@ class Submission(Spec):
 
         k = 0
         print(len(sentence))
-        
+
 
         # initialization - lex rules
         for i in range(0,len(sentence)):
@@ -66,10 +67,10 @@ class Submission(Spec):
                      found = True
             if found:
                 k = k + 1
-        
+
 
         print(k)
-        
+
         # algorithm - gram rules
         for length in range(2, len(sentence)):
             for i in range(0, len(sentence)-length+1):
@@ -82,33 +83,35 @@ class Submission(Spec):
                             curr = count / lst[self.cfg.TOTAL_MARK] * CKY[i][s][rule[0]] * CKY[s+1][j][rule[1]]
                             if(curr > _max):
                                 _max = curr
-                                _argmax = (parent_tag, rule)
+                                _argmax = (parent_tag, rule, s)
                     CKY[i][j][parent_tag] = _max
                     BP[i][j][parent_tag] = _argmax
-        
-     
+
+        def tree_to_str(start, end, tag):
+            if tag not in BP[start][end]:
+                return 'XX-' + tag
+            tag, children_tags, s = BP[start][end][tag]
+            left_tag, right_tag = children_tags
+            left_str = tree_to_str(start, s, left_tag)
+            right_str = tree_to_str(s + 1, end, right_tag)
+            if '*' in tag:
+                tag = tag.split("*")[-1].replace("-", " ")
+            return f"{tag} ({left_str} {right_str})"
+
+        ret = "(" + tree_to_str(0, len(sentence) - 1, "TOP") + ")"
 
         return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
-
-
-
-
 
         # for j in range(len(sentence)):
         #   for parent_tag, lst in self.cfg.rules.items():
         #     for rule, count in lst[self.cfg.TERMINAL_RULES].items():
         #         if()
         #         table[j][j+1][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
-        
+
         #   for i in range(j-1,-1,-1):
         #       for k in range(i+1, j):
         #          for parent_tag, lst in self.cfg.rules.items():
         #               for rule, count in lst[self.cfg.NON_TERMINAL_RULES].items():
-
-
-
-
-        
 
     def write_parse(self, sentences, output_treebank_file='output/predicted.txt'):
         ''' function writing the parse to the output file '''
@@ -116,3 +119,6 @@ class Submission(Spec):
             for sentence in sentences:
                 f.write(self.parse(sentence))
                 f.write('\n')
+
+    def to_heb(self, sentence):
+        " ".join([''.join([transliteration.to_heb(c) for c in w]) for w in sentence if not w.startswith('yy')])
