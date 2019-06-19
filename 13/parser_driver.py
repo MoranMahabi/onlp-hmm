@@ -1,6 +1,8 @@
 import os.path as path
 from os import remove
 import time 
+from util.tree.builders import list_tree_from_sequence
+from util.tree.get_yield import get_yield
 
 def drive(parser_class_under_test, output_treebank_file='output/predicted.txt'):
     ''' a simplified version of the solution driver to be used for testing all submissions '''
@@ -14,14 +16,18 @@ def drive(parser_class_under_test, output_treebank_file='output/predicted.txt'):
     
     if path.exists(output_treebank_file):
         remove(output_treebank_file)
-    
+
+    sentences = []
+    testing_treebank_file='data/heb-ctrees.gold'
+    with open(testing_treebank_file, 'r') as test_set:
+         for bracketed_notation_tree in test_set: 
+             list_tree = list_tree_from_sequence(bracketed_notation_tree)
+             tree_yield = get_yield(list_tree)
+             sentences.append(tree_yield)
+
     # parse
     before = time.time()
-    parser.write_parse(
-        [['I', 'am', 'the', 'first', 'sentence', 'to', 'parse'],
-         ['I', 'am', 'another', 'sentence', 'to', 'parse'],
-         ['I', 'am', 'the', 'last', 'sentence', 'to', 'parse']],
-        output_treebank_file)
+    parser.write_parse(sentences, output_treebank_file)
     print(f'parsing took {time.time() - before:.1f} seconds')
     
     # you can use other output paths for your experiments,

@@ -29,6 +29,8 @@ print(f'original tree as given in bracketed notation:\n\n{bracketed_notation_tre
 tree_yield = get_yield(list_tree)
 print(f'the yield extracted from the tree:\n\n{tree_yield}\n\n')
 
+
+
 de_transliterated = list(map(to_heb, tree_yield))
 print(f'the yeild, de-transliterated:\n\n{de_transliterated}\n\n')
 

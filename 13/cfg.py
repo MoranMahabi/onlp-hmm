@@ -6,12 +6,20 @@ class CFG:
     TERMINAL_RULES = 0
     NON_TERMINAL_RULES = 1
     TOTAL_MARK = 2
-    rules = defaultdict(lambda: [defaultdict(int), defaultdict(int), 0])
+    rules = defaultdict(lambda: [defaultdict(float), defaultdict(float), 0.0])
 
     def add(self, tag, derived, is_terminal_rule, count=1):
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
         self.rules[tag][rule_index][derived] += count
         self.rules[tag][self.TOTAL_MARK] += count
+    
+    def add1(self, tag, derived, is_terminal_rule, count=1):
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        self.rules[tag][rule_index][derived] += count
+
+    def remove1(self, parent, derived, is_terminal_rule):
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        del self.rules[parent][rule_index][derived]
 
     def remove(self, parent, derived, is_terminal_rule):
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
@@ -26,18 +34,26 @@ class CFG:
                 if len(rule) == 1:
                     if parent_tag == rule[0]:
                         self.remove(parent_tag, rule, False)
+                        done.add((parent_tag, rule[0]))
                     else:
                         worklist.append((parent_tag, rule[0]))
         while worklist:
             a, b = worklist.popleft()
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 is_terminal = (index == self.TERMINAL_RULES)
-                for b_rule, count in self.rules[b][index].items():
-                    if not is_terminal and len(b_rule) == 1 and b_rule != a and (a, b) not in done:
-                        worklist.append((a, b_rule[0]))
-                    self.add(a, b_rule, is_terminal, count=count)
-            self.remove(a, (b,), False)
+                for b_rule, count in copy.deepcopy(list(self.rules[b][index].items())):
+                    if (is_terminal) or (not is_terminal and len(b_rule) >= 2):
+                       self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
+                    if not is_terminal and len(b_rule) == 1:
+                       self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
+                       if b_rule != a and (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
+                            worklist.append((a, b_rule[0]))
+                       else:
+                            self.remove(a, b_rule, is_terminal)
+                       
+            self.remove1(a, (b,), False)
             done.add((a, b))
+            print(len(worklist))
 
     def binarize(self):
         # example
@@ -80,14 +96,25 @@ class CFG:
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 _sum += sum(v for rule, v in lst[index].items())
 
+            for r in lst[self.NON_TERMINAL_RULES].keys():
+                if(len(r) != 2):
+                    print(tag)
+                    print(r)
+            
+
             terminal_len_correct = all(len(r) == 1 for r in lst[self.TERMINAL_RULES].keys())
             non_terminal_len_correct = all(len(r) == 2 for r in lst[self.NON_TERMINAL_RULES].keys())
+            #print(non_terminal_len_correct)
             assert terminal_len_correct, "Terminal rule length isn't 1"
             assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
+           
 
             if _sum != lst[self.TOTAL_MARK]:
                 print('------------- Failed ----------------')
-                # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
+                print(_sum)
+                print(lst[self.TOTAL_MARK])
+
+                #print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
                 # print(tag_rules)
 
         assert res
