@@ -43,6 +43,10 @@ class Submission(Spec):
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
+        print(len(sentence))
+        if len(sentence) > 10:
+            return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
+
       
         CKY = defaultdict(lambda: defaultdict(lambda : defaultdict(float)))
         BP = defaultdict(lambda: defaultdict(lambda : defaultdict()))
@@ -69,6 +73,10 @@ class Submission(Spec):
                                  _argmax = (parent_tag, rule)
                     CKY[i][i+length][parent_tag] = _max
                     BP[i][i+length][parent_tag] = _argmax
+
+        print(len(sentence))
+        print(BP[1][len(sentence)]['TOP'])
+        print("--------------------------")            
             
         return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
 

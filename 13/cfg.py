@@ -32,10 +32,6 @@ class CFG:
         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
             for rule in lst[self.NON_TERMINAL_RULES].keys():
                 if len(rule) == 1:
-                    # if parent_tag == rule[0]:
-                    #     self.remove(parent_tag, rule, False)
-                    #     done.add((parent_tag, rule[0]))
-                    # else:
                         worklist.append((parent_tag, rule[0]))
         while worklist:
             a, b = worklist.popleft()
