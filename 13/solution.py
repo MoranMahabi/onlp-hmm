@@ -32,6 +32,8 @@ class Submission(Spec):
 
         
 
+        self.cfg.unknownSmoothing()
+
         self.cfg.binarize()
 
         self.cfg.percolate()
@@ -42,10 +44,12 @@ class Submission(Spec):
 
 
     def parse(self, sentence):
+    
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
-    s
-        if(len(sentence > 10)):
-            return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
+    
+        
+        #if len(sentence) > 10:
+        #    return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
 
       
         CKY = defaultdict(lambda: defaultdict(lambda : defaultdict(float)))
@@ -53,10 +57,19 @@ class Submission(Spec):
 
         # initialization - lex rules
         for i in range(1,len(sentence)+1):
+            found = False
             for parent_tag, lst in self.cfg.rules.items():
               for rule, count in lst[self.cfg.TERMINAL_RULES].items():
                   if(rule[0] == sentence[i-1]):
+                     found = True
                      CKY[i][i][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
+            
+            if found == False:
+                for parent_tag, lst in self.cfg.rules.items():
+                   for rule, count in lst[self.cfg.TERMINAL_RULES].items():
+                      if(rule[0] == self.cfg.UNKNOWN):
+                         CKY[i][i][parent_tag] = count / lst[self.cfg.TOTAL_MARK]
+
                       
         # algorithm - gram rules
         for length in range(1, len(sentence)):      

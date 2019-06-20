@@ -3,6 +3,7 @@ from collections import defaultdict, deque
 
 
 class CFG:
+    UNKNOWN=-1
     TERMINAL_RULES = 0
     NON_TERMINAL_RULES = 1
     TOTAL_MARK = 2
@@ -26,6 +27,21 @@ class CFG:
         self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
         del self.rules[parent][rule_index][derived]
 
+    def unknownSmoothing(self):
+         words_frequency = defaultdict(int)
+
+         for parent_tag, lst in self.rules.items():
+            for rule in lst[self.TERMINAL_RULES].keys():
+                words_frequency[rule[0]] += 1
+        
+         min_frequency = words_frequency[min(words_frequency.keys(), key=(lambda k: words_frequency[k]))]
+
+         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
+            for rule, count in lst[self.TERMINAL_RULES].items():
+                if(words_frequency[rule[0]] == min_frequency):
+                    del self.rules[parent_tag][self.TERMINAL_RULES][rule]
+                    self.rules[parent_tag][self.TERMINAL_RULES][(self.UNKNOWN,)] += count
+                  
     def percolate(self):
         worklist = deque()
         done = set()
