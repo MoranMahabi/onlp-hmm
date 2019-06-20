@@ -1,5 +1,6 @@
 import copy
 from collections import defaultdict, deque
+from math import isclose
 
 
 class CFG:
@@ -8,22 +9,18 @@ class CFG:
     TOTAL_MARK = 2
     rules = defaultdict(lambda: [defaultdict(float), defaultdict(float), 0.0])
 
-    def add(self, tag, derived, is_terminal_rule, count=1):
+    def add(self, tag, derived, is_terminal_rule, count=1.0, fix_total=True):
+        if not count:
+            return
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
         self.rules[tag][rule_index][derived] += count
-        self.rules[tag][self.TOTAL_MARK] += count
-    
-    def add1(self, tag, derived, is_terminal_rule, count=1):
-        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
-        self.rules[tag][rule_index][derived] += count
+        if fix_total:
+            self.rules[tag][self.TOTAL_MARK] += count
 
-    def remove1(self, parent, derived, is_terminal_rule):
+    def remove(self, parent, derived, is_terminal_rule, fix_total=True):
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
-        del self.rules[parent][rule_index][derived]
-
-    def remove(self, parent, derived, is_terminal_rule):
-        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
-        self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
+        if fix_total:
+            self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
         del self.rules[parent][rule_index][derived]
 
     def percolate(self):
@@ -32,23 +29,30 @@ class CFG:
         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
             for rule in lst[self.NON_TERMINAL_RULES].keys():
                 if len(rule) == 1:
+                    if parent_tag == rule[0]:
+                        self.remove(parent_tag, rule, False)
+                        done.add((parent_tag, rule[0]))
+                    else:
                         worklist.append((parent_tag, rule[0]))
         while worklist:
             a, b = worklist.popleft()
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 is_terminal = (index == self.TERMINAL_RULES)
-                for b_rule, count in copy.deepcopy(list(self.rules[b][index].items())):
-                    if (is_terminal) or (not is_terminal and len(b_rule) >= 2):
-                       self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
+
+                a_to_b_count = self.rules[a][self.NON_TERMINAL_RULES][(b,)]
+                total_b = self.rules[b][self.TOTAL_MARK]
+                a_from_b_ratio = a_to_b_count / total_b
+
+                for b_rule, count in self.rules[b][index].items():
+                    self.add(a, b_rule, is_terminal, count=count * a_from_b_ratio, fix_total=False)
                     if not is_terminal and len(b_rule) == 1:
-                       self.add1(a, b_rule, is_terminal, count=(count / self.rules[b][self.TOTAL_MARK]) * self.rules[a][self.NON_TERMINAL_RULES][(b,)])
-                       if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
+                        if b_rule[0] != a and b_rule[0] != b and (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
-                       else:
-                            self.remove(a, b_rule, is_terminal)
-                       
-            self.remove1(a, (b,), False)
+                        else:
+                            self.remove(a, b_rule, False, fix_total=True)
+
             done.add((a, b))
+            self.remove(a, (b,), False, fix_total=False)
             print(len(worklist))
 
     def binarize(self):
@@ -93,24 +97,22 @@ class CFG:
                 _sum += sum(v for rule, v in lst[index].items())
 
             for r in lst[self.NON_TERMINAL_RULES].keys():
-                if(len(r) != 2):
+                if (len(r) != 2):
                     print(tag)
                     print(r)
-            
 
             terminal_len_correct = all(len(r) == 1 for r in lst[self.TERMINAL_RULES].keys())
             non_terminal_len_correct = all(len(r) == 2 for r in lst[self.NON_TERMINAL_RULES].keys())
-            #print(non_terminal_len_correct)
+            # print(non_terminal_len_correct)
             assert terminal_len_correct, "Terminal rule length isn't 1"
             assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
-           
 
-            if _sum != lst[self.TOTAL_MARK]:
+            if not isclose(_sum, lst[self.TOTAL_MARK], abs_tol=0.0001):
                 print('------------- Failed ----------------')
                 print(_sum)
                 print(lst[self.TOTAL_MARK])
 
-                #print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
+                # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
                 # print(tag_rules)
 
         assert res
