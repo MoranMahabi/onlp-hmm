@@ -43,8 +43,8 @@ class Submission(Spec):
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
-        print(len(sentence))
-        if len(sentence) > 10:
+    s
+        if(len(sentence > 10)):
             return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
 
       
