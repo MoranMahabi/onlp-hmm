@@ -36,8 +36,8 @@ class CFG:
          for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
             for rule, count in lst[self.TERMINAL_RULES].items():
                 if(words_frequency[rule[0]] == min_frequency):
-                    del self.rules[parent_tag][self.TERMINAL_RULES][rule]
-                    self.rules[parent_tag][self.TERMINAL_RULES][(self.UNKNOWN,)] += count
+                    self.remove(parent_tag, rule, True, fix_total=False)
+                    self.add(parent_tag, (self.UNKNOWN,), True, count=count, fix_total=False)
                   
     def percolate(self):
         worklist = deque()
