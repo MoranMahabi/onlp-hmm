@@ -1,21 +1,28 @@
+import pickle
 from collections import deque, defaultdict
 
 from cfg import CFG
 from spec import Spec
+from util import transliteration
 from util.tree.builders import node_tree_from_sequence
-from util.transliteration import to_trans
 
-
-
-TOTAL_MARK = ''
+DEBUG = False
 
 
 class Submission(Spec):
     cfg = CFG()
 
     def train(self, training_treebank_file='data/heb-ctrees.train'):
-        with open(training_treebank_file, 'r') as train_set:            
+        if DEBUG:
+            self.cfg = pickle.load(open("./pcfg.p", "rb"))
+            return
+
+        with open(training_treebank_file, 'r') as train_set:
+            i = 0
             for bracketed_notation_tree in train_set:
+                # i += 1
+                # if i > 100:  # short-pass for debug
+                #      break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
                 q.append(node)
@@ -40,8 +47,7 @@ class Submission(Spec):
 
         self.cfg.validate()
 
-       
-
+        pickle.dump(self.cfg, open("./pcfg.p", "wb"))
 
     def parse(self, sentence):
     
@@ -51,9 +57,8 @@ class Submission(Spec):
         #if len(sentence) > 10:
         #    return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
 
-      
-        CKY = defaultdict(lambda: defaultdict(lambda : defaultdict(float)))
-        BP = defaultdict(lambda: defaultdict(lambda : defaultdict()))
+        CKY = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        BP = defaultdict(lambda: defaultdict(lambda: defaultdict()))
 
         # initialization - lex rules
         for i in range(1,len(sentence)+1):
@@ -72,32 +77,46 @@ class Submission(Spec):
 
                       
         # algorithm - gram rules
-        for length in range(1, len(sentence)):      
-            for i in range(1, len(sentence)-length+1):
+        for length in range(1, len(sentence)):
+            for i in range(1, len(sentence) - length + 1):
                 _max = 0
                 _argmax = None
                 for parent_tag, lst in self.cfg.rules.items():
                     for rule, count in lst[self.cfg.NON_TERMINAL_RULES].items():
-                        for s in range(i, i+length):
-                           if(lst[self.cfg.TOTAL_MARK] != 0 and CKY[i][s][rule[0]] != 0 and CKY[s+1][i+length][rule[1]] != 0): 
-                              curr = (count / lst[self.cfg.TOTAL_MARK]) * CKY[i][s][rule[0]] * CKY[s+1][i+length][rule[1]]        
-                              if(curr > _max):
-                                 _max = curr
-                                 _argmax = (parent_tag, rule)
-                    CKY[i][i+length][parent_tag] = _max
-                    BP[i][i+length][parent_tag] = _argmax
+                        for s in range(i, i + length):
+                            if lst[self.cfg.TOTAL_MARK] != 0 and CKY[i][s][rule[0]] != 0 and CKY[s + 1][i + length][rule[1]] != 0:
+                                curr = (count / lst[self.cfg.TOTAL_MARK]) * CKY[i][s][rule[0]] * CKY[s + 1][i + length][rule[1]]
+                                if curr > _max:
+                                    _max = curr
+                                    _argmax = (parent_tag, rule)
+                    CKY[i][i + length][parent_tag] = _max
+                    BP[i][i + length][parent_tag] = _argmax
 
         print(len(sentence))
         print(BP[1][len(sentence)]['TOP'])
-        print("--------------------------")            
-            
+        print("--------------------------")
+
+        def tree_to_str(start, end, tag):
+            if tag not in BP[start][end]:
+                return 'XX-' + tag
+            tag, children_tags, s = BP[start][end][tag]
+            left_tag, right_tag = children_tags
+            left_str = tree_to_str(start, s, left_tag)
+            right_str = tree_to_str(s + 1, end, right_tag)
+            if '*' in tag:
+                tag = tag.split("*")[-1].replace("-", " ")
+            return f"{tag} ({left_str} {right_str})"
+
+        ret = "(" + tree_to_str(1, len(sentence), "TOP") + ")"
+
         return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
 
     def write_parse(self, sentences, output_treebank_file='output/predicted.txt'):
         ''' function writing the parse to the output file '''
-      
         with open(output_treebank_file, 'w') as f:
             for sentence in sentences:
                 f.write(self.parse(sentence))
                 f.write('\n')
 
+    def to_heb(self, sentence):
+        " ".join([''.join([transliteration.to_heb(c) for c in w]) for w in sentence if not w.startswith('yy')])
