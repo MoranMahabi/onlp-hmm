@@ -6,11 +6,6 @@ from solution import Submission
 class Submission12(Submission):
 
     def parse(self, sentence):
-
-        ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
-
-        # if len(sentence) > 10:
-        #     return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
         print(len(sentence))
 
         cky = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
@@ -20,10 +15,10 @@ class Submission12(Submission):
         for i in range(1, len(sentence) + 1):
             found = False
             for parent_tag, lst in self.pcfg.rules.items():
-                for rule, count in lst[self.pcfg.TERMINAL_RULES].items():
-                    if rule[0] == sentence[i - 1]:
-                        found = True
-                        cky[i][i][parent_tag] = count / lst[self.pcfg.TOTAL_MARK]
+                count = next((count for rule, count in lst[self.pcfg.TERMINAL_RULES].items() if rule[0] == sentence[i - 1]), None)
+                if count is not None:
+                    found = True
+                    cky[i][i][parent_tag] = count / lst[self.pcfg.TOTAL_MARK]
 
             # handle unaries
             added = True
@@ -37,6 +32,7 @@ class Submission12(Submission):
                             prob = count / lst[self.pcfg.TOTAL_MARK] * cky[i][i][rule[0]]
                             if prob > cky[i][i][parent_tag]:
                                 cky[i][i][parent_tag] = prob
+                                bp[i][i][parent_tag] = (parent_tag, rule)
                                 added = True
 
         # algorithm - gram rules
@@ -79,3 +75,21 @@ class Submission12(Submission):
         print(ret)
 
         return ret
+
+    def tree_to_str(self, bp, sentence, start, end, tag):
+        if start == end and tag not in bp[start][end]:
+            return f"({tag} {sentence[start - 1]})"
+        # if tag not in BP[start][end]:
+        #     return 'XX-' + tag
+        if len(bp[start][end][tag]) == 2:  # without split
+            tag, children_tags = bp[start][end][tag]
+            _str = self.tree_to_str(bp, sentence, start, end, children_tags[0])
+            return f"({tag} {_str})"
+
+        tag, children_tags, s = bp[start][end][tag]
+        left_tag, right_tag = children_tags
+        left_str = self.tree_to_str(bp, sentence, start, s, left_tag)
+        right_str = self.tree_to_str(bp, sentence, s + 1, end, right_tag)
+        if '*' in tag:
+            return f"{left_str} {right_str}"
+        return f"({tag} {left_str} {right_str})"

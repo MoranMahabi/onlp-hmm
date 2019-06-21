@@ -51,11 +51,6 @@ class Submission(Spec):
             dill.dump(self.pcfg, f)
 
     def parse(self, sentence):
-        ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
-
-        # if len(sentence) > 10:
-        #    return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
-
         cky = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
         bp = defaultdict(lambda: defaultdict(lambda: defaultdict()))
 
