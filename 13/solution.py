@@ -12,7 +12,7 @@ DEBUG = False
 class Submission(Spec):
     pcfg = PCFG()
 
-    def train(self, training_treebank_file='data/heb-ctrees.train'):
+    def train(self, training_treebank_file='data/heb-ctrees.gold'):
         if DEBUG:
             self.pcfg = pickle.load(open("./pcfg.p", "rb"))
             return
@@ -20,9 +20,9 @@ class Submission(Spec):
         with open(training_treebank_file, 'r') as train_set:
             i = 0
             for bracketed_notation_tree in train_set:
-                # i += 1
-                # if i > 100:  # short-pass for debug
-                #      break
+                i += 1
+                if i > 100:  # short-pass for debug
+                     break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
                 q.append(node)
@@ -87,7 +87,7 @@ class Submission(Spec):
 
         def tree_to_str(start, end, tag):
             if start == end:
-                return tag
+                return f"{tag} {sentence[start-1]}"
             if tag not in bp[start][end]:
                 return 'XX-' + tag
             tag, children_tags, s = bp[start][end][tag]
@@ -95,7 +95,7 @@ class Submission(Spec):
             left_str = tree_to_str(start, s, left_tag)
             right_str = tree_to_str(s + 1, end, right_tag)
             if '*' in tag:
-                tag = tag.split("*")[-1].replace("-", " ")
+                tag = tag.split("*")[-1].replace("-", " ")[0]
             return f"{tag} ({left_str} {right_str})"
 
         ret = "(" + tree_to_str(1, len(sentence), "TOP") + ")"
