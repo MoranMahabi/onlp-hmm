@@ -1,5 +1,6 @@
-import pickle
 from collections import deque, defaultdict
+
+import dill
 
 from pcfg import PCFG
 from spec import Spec
@@ -12,17 +13,18 @@ DEBUG = False
 class Submission(Spec):
     pcfg = PCFG()
 
-    def train(self, training_treebank_file='data/heb-ctrees.gold'):
+    def train(self, training_treebank_file='data/heb-ctrees.mini'):
         if DEBUG:
-            self.pcfg = pickle.load(open("./pcfg.p", "rb"))
+            with open("./pcfg.p", "rb") as f:
+                self.pcfg = dill.load(f)
             return
 
         with open(training_treebank_file, 'r') as train_set:
             i = 0
             for bracketed_notation_tree in train_set:
-                i += 1
-                if i > 100:  # short-pass for debug
-                     break
+                # i += 1
+                # if i > 100:  # short-pass for debug
+                #      break
                 q = deque()
                 node = node_tree_from_sequence(bracketed_notation_tree)
                 q.append(node)
@@ -37,7 +39,7 @@ class Submission(Spec):
                         else:
                             self.pcfg.add(node.tag, derived, False)
 
-        self.pcfg.smooth_unknowns()
+        # self.pcfg.smooth_unknowns()
 
         self.pcfg.binarize()
 
@@ -45,7 +47,8 @@ class Submission(Spec):
 
         self.pcfg.validate()
 
-        pickle.dump(self.pcfg, open("./pcfg.p", "wb"))
+        with open("./pcfg.p", "wb") as f:
+            dill.dump(self.pcfg, f)
 
     def parse(self, sentence):
         ''' mock parsing function, returns a constant parse unrelated to the input sentence '''
@@ -70,37 +73,35 @@ class Submission(Spec):
             for i in range(1, len(sentence) - length + 1):
                 max_p = 0
                 argmax = None
+                j = i + length
                 for parent_tag, lst in self.pcfg.rules.items():
                     for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
-                        for s in range(i, i + length):
-                            if lst[self.pcfg.TOTAL_MARK] != 0:
-                                curr = (count / lst[self.pcfg.TOTAL_MARK]) * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
-                                if curr > max_p:
-                                    max_p = curr
-                                    argmax = (parent_tag, rule, s)
-                    cky[i][i + length][parent_tag] = max_p
-                    bp[i][i + length][parent_tag] = argmax
+                        for s in range(i, j):
+                            curr = (count / lst[self.pcfg.TOTAL_MARK]) * cky[i][s][rule[0]] * cky[s + 1][j][rule[1]]
+                            if curr > max_p:
+                                max_p = curr
+                                argmax = (parent_tag, rule, s)
+                    cky[i][j][parent_tag] = max_p
+                    bp[i][j][parent_tag] = argmax
 
         print(len(sentence))
         print(bp[1][len(sentence)]['TOP'])
         print("--------------------------")
 
-        def tree_to_str(start, end, tag):
-            if start == end:
-                return f"{tag} {sentence[start-1]}"
-            if tag not in bp[start][end]:
-                return 'XX-' + tag
-            tag, children_tags, s = bp[start][end][tag]
-            left_tag, right_tag = children_tags
-            left_str = tree_to_str(start, s, left_tag)
-            right_str = tree_to_str(s + 1, end, right_tag)
-            if '*' in tag:
-                tag = tag.split("*")[-1].replace("-", " ")[0]
-            return f"{tag} ({left_str} {right_str})"
+        return self.tree_to_str(bp, sentence, 1, len(sentence), "TOP")
 
-        ret = "(" + tree_to_str(1, len(sentence), "TOP") + ")"
-
-        return '(TOP (S (VP (VB TM)) (NP (NNT MSE) (NP (H H) (NN HLWWIIH))) (yyDOT yyDOT)))'
+    def tree_to_str(self, bp, sentence, start, end, tag):
+        if start == end:
+            return f"({tag} {sentence[start - 1]})"
+        if tag not in bp[start][end]:
+            return 'XX-' + tag
+        tag, children_tags, s = bp[start][end][tag]
+        left_tag, right_tag = children_tags
+        left_str = self.tree_to_str(bp, sentence, start, s, left_tag)
+        right_str = self.tree_to_str(bp, sentence, s + 1, end, right_tag)
+        if '*' in tag:
+            return f"{left_str} {right_str}"
+        return f"({tag} {left_str} {right_str})"
 
     def write_parse(self, sentences, output_treebank_file='output/predicted.txt'):
         ''' function writing the parse to the output file '''
@@ -108,6 +109,7 @@ class Submission(Spec):
             for sentence in sentences:
                 f.write(self.parse(sentence))
                 f.write('\n')
+                f.flush()
 
     def to_heb(self, sentence):
         " ".join([''.join([transliteration.to_heb(c) for c in w]) for w in sentence if not w.startswith('yy')])
