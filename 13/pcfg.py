@@ -1,45 +1,47 @@
 import copy
 from collections import defaultdict, deque
+
 from math import isclose
+
+from util.tree.builders import node_tree_from_sequence
 
 
 class PCFG:
+    TERMINAL_RULES = "R-T"
+    NON_TERMINAL_RULES = "R-N"
+    TOTAL_MARK = "Total"
+
     UNKNOWN = -1
-    TERMINAL_RULES = 0
-    NON_TERMINAL_RULES = 1
-    TOTAL_MARK = 2
-    rules = defaultdict(lambda: [defaultdict(float), defaultdict(float), 0.0])
 
-    def add(self, tag, derived, is_terminal_rule, count=1.0, fix_total=True):
-        if not count:
-            return
-        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
-        self.rules[tag][rule_index][derived] += count
-        if fix_total:
-            self.rules[tag][self.TOTAL_MARK] += count
+    percolated = False
 
-    def remove(self, parent, derived, is_terminal_rule, fix_total=True):
-        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
-        if fix_total:
-            self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
-        del self.rules[parent][rule_index][derived]
+    def __init__(self, training_treebank_file):
+        self.rules = defaultdict(
+            lambda: {
+                self.TERMINAL_RULES: defaultdict(float),
+                self.NON_TERMINAL_RULES: defaultdict(float),
+                self.TOTAL_MARK: 0.0
+            })
 
-    def smooth_unknowns(self):
-        words_frequency = defaultdict(int)
-
-        for parent_tag, lst in self.rules.items():
-            for rule in lst[self.TERMINAL_RULES].keys():
-                words_frequency[rule[0]] += 1
-
-        min_frequency = min(words_frequency.values())
-
-        for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
-            for rule, count in lst[self.TERMINAL_RULES].items():
-                if words_frequency[rule[0]] == min_frequency:
-                    self.remove(parent_tag, rule, True, fix_total=False)
-                    self.add(parent_tag, (self.UNKNOWN,), True, count=count, fix_total=False)
+        with open(training_treebank_file, 'r') as train_set:
+            for bracketed_notation_tree in train_set:
+                q = deque()
+                node = node_tree_from_sequence(bracketed_notation_tree)
+                q.append(node)
+                while q:
+                    node = q.popleft()
+                    children = node.children
+                    if len(children):
+                        q.extend(children)
+                        derived = tuple(c.tag for c in children)
+                        if len(children) == 1 and len(children[0].children) == 0:
+                            self._add(node.tag, derived, True)
+                        else:
+                            self._add(node.tag, derived, False)
 
     def percolate(self):
+        self.percolated = True
+
         worklist = deque()
         done = set()
         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
@@ -57,16 +59,15 @@ class PCFG:
                 a_from_b_ratio = a_to_b_count / total_b
 
                 for b_rule, count in copy.deepcopy(list(self.rules[b][index].items())):
-                    self.add(a, b_rule, is_terminal, count=count * a_from_b_ratio, fix_total=False)
+                    self._add(a, b_rule, is_terminal, count=count * a_from_b_ratio, fix_total=False)
                     if not is_terminal and len(b_rule) == 1:
                         if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
                         else:
-                            self.remove(a, b_rule, False, fix_total=True)
+                            self._remove(a, b_rule, False, fix_total=True)
 
             done.add((a, b))
-            self.remove(a, (b,), False, fix_total=False)
-            print(len(worklist))
+            self._remove(a, (b,), False, fix_total=False)
 
     def binarize(self):
         # example
@@ -91,14 +92,29 @@ class PCFG:
                     next_parent_tag = ''.join(new_derived)
                     derived = (rule[i], next_parent_tag)
                     if i == 0:
-                        self.add(curr_parent_tag, derived, False, count)
-                        self.remove(parent_tag, rule, False)
+                        self._add(curr_parent_tag, derived, False, count)
+                        self._remove(parent_tag, rule, False)
                     else:
-                        self.add(curr_parent_tag, derived, False)
+                        self._add(curr_parent_tag, derived, False)
 
                     curr_parent_tag = next_parent_tag
 
-                self.add(curr_parent_tag, (rule[rule_len - 2], rule[rule_len - 1]), False)
+                self._add(curr_parent_tag, (rule[rule_len - 2], rule[rule_len - 1]), False)
+
+    def smooth_unknowns(self):
+        words_frequency = defaultdict(int)
+
+        for parent_tag, lst in self.rules.items():
+            for rule in lst[self.TERMINAL_RULES].keys():
+                words_frequency[rule[0]] += 1
+
+        min_frequency = min(words_frequency.values())
+
+        for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
+            for rule, count in lst[self.TERMINAL_RULES].items():
+                if words_frequency[rule[0]] == min_frequency:
+                    self._remove(parent_tag, rule, True, fix_total=False)
+                    self._add(parent_tag, (self.UNKNOWN,), True, count=count, fix_total=False)
 
     def validate(self):
         # test probabilities:
@@ -110,12 +126,15 @@ class PCFG:
                 _sum += sum(v for rule, v in lst[index].items())
 
             for r in lst[self.NON_TERMINAL_RULES].keys():
-                if (len(r) != 2):
+                if len(r) != 2:
                     print(tag)
                     print(r)
 
             terminal_len_correct = all(len(r) == 1 for r in lst[self.TERMINAL_RULES].keys())
-            non_terminal_len_correct = all(len(r) == 2 for r in lst[self.NON_TERMINAL_RULES].keys())
+            if self.percolated:
+                non_terminal_len_correct = all(len(r) == 2 for r in lst[self.NON_TERMINAL_RULES].keys())
+            else:
+                non_terminal_len_correct = all(1 <= len(r) <= 2 for r in lst[self.NON_TERMINAL_RULES].keys())
             # print(non_terminal_len_correct)
             assert terminal_len_correct, "Terminal rule length isn't 1"
             assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
@@ -129,3 +148,17 @@ class PCFG:
                 # print(tag_rules)
 
         assert res
+
+    def _add(self, tag, derived, is_terminal_rule, count=1.0, fix_total=True):
+        if not count:
+            return
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        self.rules[tag][rule_index][derived] += count
+        if fix_total:
+            self.rules[tag][self.TOTAL_MARK] += count
+
+    def _remove(self, parent, derived, is_terminal_rule, fix_total=True):
+        rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
+        if fix_total:
+            self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
+        del self.rules[parent][rule_index][derived]

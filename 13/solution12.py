@@ -5,6 +5,9 @@ from solution import Submission
 
 class Submission12(Submission):
 
+    def train(self, training_treebank_file='data/heb-ctrees.mini', percolate=False):
+        super().train(training_treebank_file, percolate=False)
+
     def parse(self, sentence):
         print(len(sentence))
 
@@ -64,14 +67,14 @@ class Submission12(Submission):
                                         bp[i][i + length][parent_tag] = (parent_tag, rule)
                                         added = True
 
+        if 'TOP' not in bp[1][len(sentence)]:
+            print("Un-parsable sentence")
+            return ''
+
         print(bp[1][len(sentence)]['TOP'])
         print("--------------------------")
 
-        print("------tree_to_str-------")
-
         ret = self.tree_to_str(bp, sentence, 1, len(sentence), "TOP")
-
-        print("---ret----")
         print(ret)
 
         return ret
@@ -79,12 +82,10 @@ class Submission12(Submission):
     def tree_to_str(self, bp, sentence, start, end, tag):
         if start == end and tag not in bp[start][end]:
             return f"({tag} {sentence[start - 1]})"
-        # if tag not in BP[start][end]:
-        #     return 'XX-' + tag
-        if len(bp[start][end][tag]) == 2:  # without split
+        if len(bp[start][end][tag]) == 2:  # without split, unary chain
             tag, children_tags = bp[start][end][tag]
-            _str = self.tree_to_str(bp, sentence, start, end, children_tags[0])
-            return f"({tag} {_str})"
+            chain = self.tree_to_str(bp, sentence, start, end, children_tags[0])
+            return f"({tag} {chain})"
 
         tag, children_tags, s = bp[start][end][tag]
         left_tag, right_tag = children_tags

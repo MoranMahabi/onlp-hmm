@@ -2,6 +2,11 @@
   <dictionary name="nirsa">
     <words>
       <w>argmax</w>
+      <w>binarize</w>
+      <w>pcfg</w>
+      <w>treebank</w>
+      <w>unaries</w>
+      <w>worklist</w>
     </words>
   </dictionary>
 </component>
