@@ -7,8 +7,8 @@ from util.tree.builders import node_tree_from_sequence
 
 
 class PCFG:
-    TERMINAL_RULES = "R-T"
-    NON_TERMINAL_RULES = "R-N"
+    TERMINAL_RULES = "T"
+    NON_TERMINAL_RULES = "N"
     TOTAL_MARK = "Total"
 
     UNKNOWN = -1
@@ -16,13 +16,19 @@ class PCFG:
     percolated = False
 
     def __init__(self, training_treebank_file):
+        self.unknown_rules = dict()
         self.rules = defaultdict(
             lambda: {
                 self.TERMINAL_RULES: defaultdict(float),
                 self.NON_TERMINAL_RULES: defaultdict(float),
                 self.TOTAL_MARK: 0.0
             })
+        self.reverse_rules = {
+            self.TERMINAL_RULES: defaultdict(list),
+            self.NON_TERMINAL_RULES: defaultdict(list),
+        }
 
+        terminal_parents = defaultdict(int)
         with open(training_treebank_file, 'r') as train_set:
             for bracketed_notation_tree in train_set:
                 q = deque()
@@ -36,8 +42,14 @@ class PCFG:
                         derived = tuple(c.tag for c in children)
                         if len(children) == 1 and len(children[0].children) == 0:
                             self._add(node.tag, derived, True)
+                            terminal_parents[node.tag] += 1
                         else:
                             self._add(node.tag, derived, False)
+
+        sum_terminals = sum(terminal_parents.values())
+        for tp, count in terminal_parents.items():
+            tp_ratio = count / sum_terminals
+            self.unknown_rules[tp] = tp_ratio
 
     def percolate(self):
         self.percolated = True
@@ -115,6 +127,14 @@ class PCFG:
                 if words_frequency[rule[0]] == min_frequency:
                     self._remove(parent_tag, rule, True, fix_total=False)
                     self._add(parent_tag, (self.UNKNOWN,), True, count=count, fix_total=False)
+
+    def reverse(self):
+        for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
+            for parent_tag, lst in self.rules.items():
+                total = lst[self.TOTAL_MARK]
+                for rule, count in lst[index].items():
+                    assert count and total
+                    self.reverse_rules[index][rule[0]].append((parent_tag, rule, count / lst[self.TOTAL_MARK]))
 
     def validate(self):
         # test probabilities:

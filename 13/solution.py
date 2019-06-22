@@ -28,6 +28,8 @@ class Submission(Spec):
 
             self.pcfg.validate()
 
+        self.pcfg.reverse()
+
         with open(pickle_file, "wb") as f:
             dill.dump(self.pcfg, f)
 

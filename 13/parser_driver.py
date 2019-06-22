@@ -7,8 +7,6 @@ from util.tree.get_yield import get_yield
 
 
 def drive(parser_class_under_test, output_treebank_file='output/predicted.txt'):
-    ''' a simplified version of the solution driver to be used for testing all submissions '''
-
     testing_treebank_file = 'data/heb-ctrees.mini'
     #
     # with open('data/heb-ctrees.mini', 'w') as mini:

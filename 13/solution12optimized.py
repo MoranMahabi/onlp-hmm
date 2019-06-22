@@ -16,12 +16,11 @@ class Submission12(Submission):
 
         # initialization - lex rules
         for i in range(1, len(sentence) + 1):
-            found = False
-            for parent_tag, lst in self.pcfg.rules.items():
-                count = next((count for rule, count in lst[self.pcfg.TERMINAL_RULES].items() if rule[0] == sentence[i - 1]), None)
-                if count is not None:
-                    found = True
-                    cky[i][i][parent_tag] = count / lst[self.pcfg.TOTAL_MARK]
+            possible_parents = self.pcfg.reverse_rules[self.pcfg.TERMINAL_RULES][sentence[i - 1]]
+            for parent_tag, rule, rule_prob in possible_parents:
+                cky[i][i][parent_tag] = rule_prob
+            # if not possible_parents:
+            #     cky[i][i].update(self.pcfg.unknown_rules)
 
             # handle unaries
             added = True
@@ -42,14 +41,17 @@ class Submission12(Submission):
         for length in range(1, len(sentence)):
             for i in range(1, len(sentence) - length + 1):
                 for s in range(i, i + length):
-                    for parent_tag, lst in self.pcfg.rules.items():
-                        for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
+                    possible_left_children = [k for k, v in cky[i][s].items() if v > 0]
+                    for plc in possible_left_children:
+                        possible_left_parents = self.pcfg.reverse_rules[self.pcfg.NON_TERMINAL_RULES][plc]
+                        for parent_tag, rule, rule_prob in possible_left_parents:
                             if len(rule) != 2:
                                 continue
-                            if lst[self.pcfg.TOTAL_MARK] != 0 and cky[i][s].get(rule[0], 0) != 0 and cky[s + 1][i + length].get(rule[1], 0) != 0:
-                                prob = (count / lst[self.pcfg.TOTAL_MARK]) * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
-                                if prob > cky[i][i + length][parent_tag]:
-                                    cky[i][i + length][parent_tag] = prob
+                            assert cky[i][s].get(rule[0], 0) != 0
+                            if rule_prob and cky[s + 1][i + length].get(rule[1], 0) != 0:
+                                rule_prob = rule_prob * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
+                                if rule_prob > cky[i][i + length][parent_tag]:
+                                    cky[i][i + length][parent_tag] = rule_prob
                                     bp[i][i + length][parent_tag] = (parent_tag, rule, s)
 
                     # handle unaries
