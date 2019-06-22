@@ -136,6 +136,24 @@ class PCFG:
                     assert count and total
                     self.reverse_rules[index][rule[0]].append((parent_tag, rule, count / lst[self.TOTAL_MARK]))
 
+    def reverse_and_smooth(self):
+        delta = 0.01
+        for parent_tag, lst in self.rules.items():
+            total = lst[self.TOTAL_MARK]
+            factor_total = total + (delta * len(lst[self.TERMINAL_RULES]))
+            assert factor_total
+
+            if lst[self.TERMINAL_RULES]:
+                self.unknown_rules[parent_tag] = delta / factor_total
+
+            for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
+                is_terminal = index == self.TERMINAL_RULES
+                for rule, count in lst[index].items():
+                    assert count
+                    if is_terminal:
+                        count += delta
+                    self.reverse_rules[index][rule[0]].append((parent_tag, rule, count / factor_total))
+
     def validate(self):
         # test probabilities:
         print('----validate-----')

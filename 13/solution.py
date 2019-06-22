@@ -28,7 +28,7 @@ class Submission(Spec):
 
             self.pcfg.validate()
 
-        self.pcfg.reverse()
+        self.pcfg.reverse_and_smooth()
 
         with open(pickle_file, "wb") as f:
             dill.dump(self.pcfg, f)

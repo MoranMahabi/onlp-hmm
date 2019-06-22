@@ -19,23 +19,26 @@ class Submission12(Submission):
             possible_parents = self.pcfg.reverse_rules[self.pcfg.TERMINAL_RULES][sentence[i - 1]]
             for parent_tag, rule, rule_prob in possible_parents:
                 cky[i][i][parent_tag] = rule_prob
-            # if not possible_parents:
-            #     cky[i][i].update(self.pcfg.unknown_rules)
+            if not possible_parents:
+                cky[i][i].update(self.pcfg.unknown_rules)
 
             # handle unaries
             added = True
             while added:
                 added = False
-                for parent_tag, lst in self.pcfg.rules.items():
-                    for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
+                possible_left_children = [k for k, v in cky[i][i].items() if v > 0]
+                for plc in possible_left_children:
+                    possible_left_parents = self.pcfg.reverse_rules[self.pcfg.NON_TERMINAL_RULES][plc]
+                    for parent_tag, rule, rule_prob in possible_left_parents:
                         if len(rule) != 1:
                             continue
-                        if cky[i][i].get(rule[0], 0) > 0:
-                            prob = count / lst[self.pcfg.TOTAL_MARK] * cky[i][i][rule[0]]
-                            if prob > cky[i][i][parent_tag]:
-                                cky[i][i][parent_tag] = prob
-                                bp[i][i][parent_tag] = (parent_tag, rule)
-                                added = True
+                        assert plc == rule[0]  # rule is of left child
+                        assert cky[i][i].get(plc, 0) != 0
+                        prob = rule_prob * cky[i][i][plc]
+                        if prob > cky[i][i][parent_tag]:
+                            cky[i][i][parent_tag] = prob
+                            bp[i][i][parent_tag] = (parent_tag, (plc, ))
+                            added = True
 
         # algorithm - gram rules
         for length in range(1, len(sentence)):
