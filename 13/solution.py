@@ -18,10 +18,7 @@ class Submission(Spec):
             return
 
         self.pcfg = PCFG(training_treebank_file)
-
-        # self.pcfg.smooth_unknowns()
-        
-
+   
         self.pcfg.binarize()
 
         if percolate:
@@ -31,7 +28,7 @@ class Submission(Spec):
         
         self.pcfg.add_delta_smoothing()
 
-        self.pcfg.reverse()
+        #self.pcfg.reverse_and_smooth()
 
         with open(pickle_file, "wb") as f:
             dill.dump(self.pcfg, f)
