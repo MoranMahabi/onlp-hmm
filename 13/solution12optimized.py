@@ -47,6 +47,7 @@ class Submission12(Submission):
                         for parent_tag, rule, rule_prob in possible_left_parents:
                             if len(rule) != 2:
                                 continue
+                            assert plc == rule[0]  # rule is of left child
                             assert cky[i][s].get(rule[0], 0) != 0
                             if rule_prob and cky[s + 1][i + length].get(rule[1], 0) != 0:
                                 rule_prob = rule_prob * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
@@ -58,16 +59,19 @@ class Submission12(Submission):
                     added = True
                     while added:
                         added = False
-                        for parent_tag, lst in self.pcfg.rules.items():
-                            for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
+                        possible_left_children = [k for k, v in cky[i][i + length].items() if v > 0]
+                        for plc in possible_left_children:
+                            possible_left_parents = self.pcfg.reverse_rules[self.pcfg.NON_TERMINAL_RULES][plc]
+                            for parent_tag, rule, rule_prob in possible_left_parents:
                                 if len(rule) != 1:
                                     continue
-                                if cky[i][i + length].get(rule[0], 0) > 0:
-                                    prob = count / lst[self.pcfg.TOTAL_MARK] * cky[i][i + length][rule[0]]
-                                    if prob > cky[i][i + length][parent_tag]:
-                                        cky[i][i + length][parent_tag] = prob
-                                        bp[i][i + length][parent_tag] = (parent_tag, rule)
-                                        added = True
+                                assert plc == rule[0]  # rule is of left child
+                                assert cky[i][i + length].get(plc, 0) != 0
+                                prob = rule_prob * cky[i][i + length][plc]
+                                if prob > cky[i][i + length][parent_tag]:
+                                    cky[i][i + length][parent_tag] = prob
+                                    bp[i][i + length][parent_tag] = (parent_tag, rule)
+                                    added = True
 
         if 'TOP' not in bp[1][len(sentence)]:
             print("Un-parsable sentence")
