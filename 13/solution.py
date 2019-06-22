@@ -20,6 +20,7 @@ class Submission(Spec):
         self.pcfg = PCFG(training_treebank_file)
 
         # self.pcfg.smooth_unknowns()
+        
 
         self.pcfg.binarize()
 
@@ -27,6 +28,8 @@ class Submission(Spec):
             self.pcfg.percolate()
 
             self.pcfg.validate()
+        
+        self.pcfg.add_delta_smoothing()
 
         self.pcfg.reverse()
 

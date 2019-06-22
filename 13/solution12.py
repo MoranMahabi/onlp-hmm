@@ -5,7 +5,7 @@ from solution import Submission
 
 class Submission12(Submission):
 
-    def train(self, training_treebank_file='data/heb-ctrees.mini', percolate=False):
+    def train(self, training_treebank_file='data/heb-ctrees.train', percolate=False):
         super().train(training_treebank_file, percolate=False)
 
     def parse(self, sentence):
@@ -15,13 +15,24 @@ class Submission12(Submission):
         bp = defaultdict(lambda: defaultdict(lambda: defaultdict()))
 
         # initialization - lex rules
-        for i in range(1, len(sentence) + 1):
+        for i in range(1,len(sentence)+1):
             found = False
             for parent_tag, lst in self.pcfg.rules.items():
-                count = next((count for rule, count in lst[self.pcfg.TERMINAL_RULES].items() if rule[0] == sentence[i - 1]), None)
-                if count is not None:
-                    found = True
-                    cky[i][i][parent_tag] = count / lst[self.pcfg.TOTAL_MARK]
+              for rule, count in lst[self.pcfg.TERMINAL_RULES].items():
+                  if(rule[0] == sentence[i-1]):
+                     found = True
+                     cky[i][i][parent_tag] = count / lst[self.pcfg.TOTAL_MARK]
+
+            if found == False:
+                for parent_tag, lst in self.pcfg.rules.items():
+                    if '*' in parent_tag:
+                        continue
+
+                    if len(self.pcfg.rules[parent_tag][self.pcfg.TERMINAL_RULES]) == 0:
+                        continue
+                        
+                    cky[i][i][parent_tag] = self.pcfg.rules[parent_tag][self.pcfg.TERMINAL_RULES][(sentence[i-1],)] / lst[self.pcfg.TOTAL_MARK]
+
 
             # handle unaries
             added = True
@@ -31,7 +42,7 @@ class Submission12(Submission):
                     for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
                         if len(rule) != 1:
                             continue
-                        if cky[i][i].get(rule[0], 0) > 0:
+                        if cky[i][i][rule[0]] > 0:
                             prob = count / lst[self.pcfg.TOTAL_MARK] * cky[i][i][rule[0]]
                             if prob > cky[i][i][parent_tag]:
                                 cky[i][i][parent_tag] = prob
@@ -46,7 +57,7 @@ class Submission12(Submission):
                         for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
                             if len(rule) != 2:
                                 continue
-                            if lst[self.pcfg.TOTAL_MARK] != 0 and cky[i][s].get(rule[0], 0) != 0 and cky[s + 1][i + length].get(rule[1], 0) != 0:
+                            if lst[self.pcfg.TOTAL_MARK] != 0 and cky[i][s][rule[0]] != 0 and cky[s + 1][i + length][rule[1]] != 0:
                                 prob = (count / lst[self.pcfg.TOTAL_MARK]) * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
                                 if prob > cky[i][i + length][parent_tag]:
                                     cky[i][i + length][parent_tag] = prob
@@ -60,7 +71,7 @@ class Submission12(Submission):
                             for rule, count in lst[self.pcfg.NON_TERMINAL_RULES].items():
                                 if len(rule) != 1:
                                     continue
-                                if cky[i][i + length].get(rule[0], 0) > 0:
+                                if cky[i][i + length][rule[0]] > 0:
                                     prob = count / lst[self.pcfg.TOTAL_MARK] * cky[i][i + length][rule[0]]
                                     if prob > cky[i][i + length][parent_tag]:
                                         cky[i][i + length][parent_tag] = prob

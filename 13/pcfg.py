@@ -113,6 +113,24 @@ class PCFG:
 
                 self._add(curr_parent_tag, (rule[rule_len - 2], rule[rule_len - 1]), False)
 
+
+    def add_delta_smoothing(self):
+        delta = 0.001
+
+        for parent_tag, lst in self.rules.items():
+            total = lst[self.TOTAL_MARK]
+            self.rules[parent_tag][self.TOTAL_MARK] = total + (delta * (len(lst[self.TERMINAL_RULES]) + len(lst[self.NON_TERMINAL_RULES])))
+
+            for rule, count in lst[self.TERMINAL_RULES].items():
+                self.rules[parent_tag][self.TERMINAL_RULES][rule] += delta
+            self.rules[parent_tag][self.TERMINAL_RULES].default_factory = lambda : delta
+            
+            for rule, count in lst[self.NON_TERMINAL_RULES].items():
+                self.rules[parent_tag][self.NON_TERMINAL_RULES][rule] += delta
+            self.rules[parent_tag][self.NON_TERMINAL_RULES].default_factory = lambda : delta
+
+                
+
     def smooth_unknowns(self):
         words_frequency = defaultdict(int)
 

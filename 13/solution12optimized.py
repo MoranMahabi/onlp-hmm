@@ -5,7 +5,7 @@ from solution import Submission
 
 class Submission12(Submission):
 
-    def train(self, training_treebank_file='data/heb-ctrees.mini', percolate=False):
+    def train(self, training_treebank_file='data/heb-ctrees.train', percolate=False):
         super().train(training_treebank_file, percolate=False)
 
     def parse(self, sentence):
