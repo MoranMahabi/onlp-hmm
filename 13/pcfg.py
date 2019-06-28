@@ -15,20 +15,46 @@ class PCFG:
 
     percolated = False
 
-    def __init__(self, training_treebank_file):
-        self.unknown_rules = dict()
+    def __init__(self, training_treebank_file, parent_encoding):
+        self.unknown_rules = defaultdict(float)
         self.rules = defaultdict(
             lambda: {
                 self.TERMINAL_RULES: defaultdict(float),
                 self.NON_TERMINAL_RULES: defaultdict(float),
-                self.TOTAL_MARK: 0.0
+                self.TOTAL_MARK: 0.0    # relevant only for unnormalized grammar
             })
         self.reverse_rules = {
             self.TERMINAL_RULES: defaultdict(list),
             self.NON_TERMINAL_RULES: defaultdict(list),
         }
+        self.terminals = set()
 
-        terminal_parents = defaultdict(int)
+        if parent_encoding == True:
+            self.update_rules_with_parent_encoding(training_treebank_file)
+        else:
+            self.update_rules(training_treebank_file)
+
+    def update_rules_with_parent_encoding(self, training_treebank_file):
+        with open(training_treebank_file, 'r') as train_set:
+            for bracketed_notation_tree in train_set:
+                q = deque()
+                node = node_tree_from_sequence(bracketed_notation_tree)
+                q.append((node, None))
+                while q:
+                    node, parent_node_tag = q.popleft()
+                    children = node.children
+                    if len(children):
+                        q.extend([(c, node.tag) for c in children])
+                        prarent_tag = node.tag if parent_node_tag == None else f"{node.tag}@{parent_node_tag}"
+                        if len(children) == 1 and len(children[0].children) == 0:
+                            derived = tuple(c.tag for c in children)
+                            self._add(prarent_tag, derived, True)
+                            self.terminals.add(derived)
+                        else:
+                            derived = tuple(f"{c.tag}@{node.tag}" for c in children)
+                            self._add(prarent_tag, derived, False)
+
+    def update_rules(self, training_treebank_file):
         with open(training_treebank_file, 'r') as train_set:
             for bracketed_notation_tree in train_set:
                 q = deque()
@@ -42,14 +68,31 @@ class PCFG:
                         derived = tuple(c.tag for c in children)
                         if len(children) == 1 and len(children[0].children) == 0:
                             self._add(node.tag, derived, True)
-                            terminal_parents[node.tag] += 1
+                            self.terminals.add(derived)
                         else:
-                            self._add(node.tag, derived, False)
+                            self._add(node.tag, derived, False)  
 
-        sum_terminals = sum(terminal_parents.values())
-        for tp, count in terminal_parents.items():
-            tp_ratio = count / sum_terminals
-            self.unknown_rules[tp] = tp_ratio
+
+    def normalize_and_smooth(self):
+        V = len(self.terminals)
+        delta = 0.1 
+
+        for parent_tag, lst in self.rules.items():
+            total = lst[self.TOTAL_MARK]
+            total_none_terminals = 0
+
+            for rule, count in lst[self.NON_TERMINAL_RULES].items():
+                self.rules[parent_tag][self.NON_TERMINAL_RULES][rule] = count/total
+                total_none_terminals += count
+            
+            total_terminals = total - total_none_terminals
+            for rule, count in lst[self.TERMINAL_RULES].items():
+                self.rules[parent_tag][self.TERMINAL_RULES][rule] = (count + delta) / (total + (total / total_terminals) * delta * V)
+            
+            if total_terminals != 0: 
+                self.unknown_rules[parent_tag] =  delta / (total + (total / total_terminals) * delta * V)
+            else:
+                self.unknown_rules[parent_tag] = 0
 
     def percolate(self):
         self.percolated = True
@@ -65,21 +108,19 @@ class PCFG:
             a, b = worklist.popleft()
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 is_terminal = (index == self.TERMINAL_RULES)
-
-                a_to_b_count = self.rules[a][self.NON_TERMINAL_RULES][(b,)]
-                total_b = self.rules[b][self.TOTAL_MARK]
-                a_from_b_ratio = a_to_b_count / total_b
-
-                for b_rule, count in copy.deepcopy(list(self.rules[b][index].items())):
-                    self._add(a, b_rule, is_terminal, count=count * a_from_b_ratio, fix_total=False)
+                a_to_b_prob = self.rules[a][self.NON_TERMINAL_RULES][(b,)]
+              
+                for b_rule, prob in copy.deepcopy(list(self.rules[b][index].items())):
+                    self._add(a, b_rule, is_terminal, count=prob * a_to_b_prob, fix_total=False)
                     if not is_terminal and len(b_rule) == 1:
                         if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
                         else:
-                            self._remove(a, b_rule, False, fix_total=True)
+                            self._remove(a, b_rule, False, fix_total=True) # TO DO 
 
             done.add((a, b))
             self._remove(a, (b,), False, fix_total=False)
+    
 
     def binarize(self):
         # example
@@ -89,7 +130,7 @@ class PCFG:
         #         VB-NP*PP-PP → PP PP          (prob=1)
 
         for parent_tag, lst in copy.deepcopy(list(self.rules.items())):
-            for rule, count in lst[self.NON_TERMINAL_RULES].items():
+            for rule, prob in lst[self.NON_TERMINAL_RULES].items():
                 rule_len = len(rule)
                 if rule_len <= 2:  # Already binary, or unary
                     continue
@@ -104,56 +145,21 @@ class PCFG:
                     next_parent_tag = ''.join(new_derived)
                     derived = (rule[i], next_parent_tag)
                     if i == 0:
-                        self._add(curr_parent_tag, derived, False, count)
-                        self._remove(parent_tag, rule, False)
+                        self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][derived] = prob
+                        del self.rules[parent_tag][self.NON_TERMINAL_RULES][rule]  
                     else:
-                        self._add(curr_parent_tag, derived, False)
+                        self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][derived] = 1
 
                     curr_parent_tag = next_parent_tag
 
-                self._add(curr_parent_tag, (rule[rule_len - 2], rule[rule_len - 1]), False)
-
-
-    def add_delta_smoothing(self):
-        delta = 0.001
-
-        for parent_tag, lst in self.rules.items():
-            total = lst[self.TOTAL_MARK]
-            self.rules[parent_tag][self.TOTAL_MARK] = total + (delta * (len(lst[self.TERMINAL_RULES]) + len(lst[self.NON_TERMINAL_RULES])))
-
-            for rule, count in lst[self.TERMINAL_RULES].items():
-                self.rules[parent_tag][self.TERMINAL_RULES][rule] += delta
-            self.rules[parent_tag][self.TERMINAL_RULES].default_factory = lambda : delta
-            
-            for rule, count in lst[self.NON_TERMINAL_RULES].items():
-                self.rules[parent_tag][self.NON_TERMINAL_RULES][rule] += delta
-            self.rules[parent_tag][self.NON_TERMINAL_RULES].default_factory = lambda : delta
+                self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][(rule[rule_len - 2], rule[rule_len - 1])] = 1    
 
     def reverse(self):
         for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
             for parent_tag, lst in self.rules.items():
-                total = lst[self.TOTAL_MARK]
-                for rule, count in lst[index].items():
-                    assert count and total
-                    self.reverse_rules[index][rule[0]].append((parent_tag, rule, count / lst[self.TOTAL_MARK]))
-
-    def reverse_and_smooth(self):
-        delta = 0.01
-        for parent_tag, lst in self.rules.items():
-            total = lst[self.TOTAL_MARK]
-            factor_total = total + (delta * len(lst[self.TERMINAL_RULES]))
-            assert factor_total
-
-            if lst[self.TERMINAL_RULES]:
-                self.unknown_rules[parent_tag] = delta / factor_total
-
-            for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
-                is_terminal = index == self.TERMINAL_RULES
-                for rule, count in lst[index].items():
-                    assert count
-                    if is_terminal:
-                        count += delta
-                    self.reverse_rules[index][rule[0]].append((parent_tag, rule, count / factor_total))
+                for rule, rule_prob in lst[index].items():
+                    assert rule_prob
+                    self.reverse_rules[index][rule[0]].append((parent_tag, rule, rule_prob))
 
     def validate(self):
         # test probabilities:
@@ -163,11 +169,15 @@ class PCFG:
             _sum = 0
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 _sum += sum(v for rule, v in lst[index].items())
+            
+            if _sum < 1:
+                print(tag)
+                print(_sum)
 
-            for r in lst[self.NON_TERMINAL_RULES].keys():
-                if len(r) != 2:
-                    print(tag)
-                    print(r)
+            # for r in lst[self.NON_TERMINAL_RULES].keys():
+            #     if len(r) != 2:
+            #         print(tag)
+            #         print(r)
 
             terminal_len_correct = all(len(r) == 1 for r in lst[self.TERMINAL_RULES].keys())
             if self.percolated:
@@ -178,10 +188,10 @@ class PCFG:
             assert terminal_len_correct, "Terminal rule length isn't 1"
             assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
 
-            if not isclose(_sum, lst[self.TOTAL_MARK], abs_tol=0.0001):
-                print('------------- Failed ----------------')
-                print(_sum)
-                print(lst[self.TOTAL_MARK])
+            #if not isclose(_sum, lst[self.TOTAL_MARK], abs_tol=0.0001):
+                # print('------------- Failed ----------------')
+                # print(_sum)
+                # print(lst[self.TOTAL_MARK])
 
                 # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
                 # print(tag_rules)

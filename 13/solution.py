@@ -10,25 +10,27 @@ DEBUG = False
 class Submission(Spec):
     pcfg = None
 
-    def train(self, training_treebank_file='data/heb-ctrees.mini', percolate=True):
+    def train(self, training_treebank_file='data/heb-ctrees.gold', percolate=True, parent_encoding=False):
         pickle_file = "./pcfg-p.p" if percolate else "./pcfg.p"
         if DEBUG:
             with open(pickle_file, "rb") as f:
                 self.pcfg = dill.load(f)
             return
 
-        self.pcfg = PCFG(training_treebank_file)
+        self.pcfg = PCFG(training_treebank_file, parent_encoding)
+
+        self.pcfg.normalize_and_smooth()
    
         self.pcfg.binarize()
+
+        self.pcfg.validate()
 
         if percolate:
             self.pcfg.percolate()
 
             self.pcfg.validate()
         
-        self.pcfg.add_delta_smoothing()
-
-        #self.pcfg.reverse_and_smooth()
+        self.pcfg.reverse()
 
         with open(pickle_file, "wb") as f:
             dill.dump(self.pcfg, f)
