@@ -7,7 +7,7 @@ from util.tree.get_yield import get_yield
 
 
 def drive(parser_class_under_test, output_treebank_file='output/predicted.txt'):
-    testing_treebank_file = 'data/heb-ctrees.mini'
+    testing_treebank_file = 'data/heb-ctrees.gold'
 
     parser = parser_class_under_test()
 
