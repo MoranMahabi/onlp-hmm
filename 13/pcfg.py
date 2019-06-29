@@ -29,6 +29,7 @@ class PCFG:
         }
         self.terminals = set()
 
+        print(f"Training on {training_treebank_file}...")
         if parent_encoding:
             self.update_rules_with_parent_encoding(training_treebank_file)
         else:

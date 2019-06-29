@@ -10,7 +10,7 @@ DEBUG = False
 class Submission(Spec):
     pcfg = None
 
-    def train(self, training_treebank_file='data/heb-ctrees.gold', percolate=True, parent_encoding=False):
+    def train(self, training_treebank_file='data/heb-ctrees.train', percolate=True, parent_encoding=False):
         pickle_file = "./pcfg-p.p" if percolate else "./pcfg.p"
         if DEBUG:
             with open(pickle_file, "rb") as f:

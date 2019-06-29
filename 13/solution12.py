@@ -35,7 +35,7 @@ class Submission12(Submission):
                         assert plc == rule[0]  # rule is of left child
                         assert cky[i][i].get(plc, 0) != 0
                         prob = rule_prob * cky[i][i][plc]
-                        if prob > cky[i][i][parent_tag]:
+                        if prob > cky[i][i].get(parent_tag, 0):
                             cky[i][i][parent_tag] = prob
                             bp[i][i][parent_tag] = (parent_tag, (plc,))
                             added = True
@@ -54,27 +54,27 @@ class Submission12(Submission):
                             assert cky[i][s].get(rule[0], 0) != 0
                             if rule_prob and cky[s + 1][i + length].get(rule[1], 0) != 0:
                                 prob = rule_prob * cky[i][s][rule[0]] * cky[s + 1][i + length][rule[1]]
-                                if prob > cky[i][i + length][parent_tag]:
+                                if prob > cky[i][i + length].get(parent_tag, 0):
                                     cky[i][i + length][parent_tag] = prob
                                     bp[i][i + length][parent_tag] = (parent_tag, rule, s)
 
-                    # handle unaries
-                    added = True
-                    while added:
-                        added = False
-                        possible_left_children = [k for k, v in cky[i][i + length].items() if v > 0]
-                        for plc in possible_left_children:
-                            possible_left_parents = self.pcfg.reverse_rules[self.pcfg.NON_TERMINAL_RULES][plc]
-                            for parent_tag, rule, rule_prob in possible_left_parents:
-                                if len(rule) != 1:
-                                    continue
-                                assert plc == rule[0]  # rule is of left child
-                                assert cky[i][i + length].get(plc, 0) != 0
-                                prob = rule_prob * cky[i][i + length][plc]
-                                if prob > cky[i][i + length][parent_tag]:
-                                    cky[i][i + length][parent_tag] = prob
-                                    bp[i][i + length][parent_tag] = (parent_tag, rule)
-                                    added = True
+                # handle unaries
+                added = True
+                while added:
+                    added = False
+                    possible_left_children = [k for k, v in cky[i][i + length].items() if v > 0]
+                    for plc in possible_left_children:
+                        possible_left_parents = self.pcfg.reverse_rules[self.pcfg.NON_TERMINAL_RULES][plc]
+                        for parent_tag, rule, rule_prob in possible_left_parents:
+                            if len(rule) != 1:
+                                continue
+                            assert plc == rule[0]  # rule is of left child
+                            assert cky[i][i + length].get(plc, 0) != 0
+                            prob = rule_prob * cky[i][i + length][plc]
+                            if prob > cky[i][i + length].get(parent_tag, 0):
+                                cky[i][i + length][parent_tag] = prob
+                                bp[i][i + length][parent_tag] = (parent_tag, rule)
+                                added = True
 
         if 'TOP' not in bp[1][len(sentence)]:
             print("Un-parsable sentence")
