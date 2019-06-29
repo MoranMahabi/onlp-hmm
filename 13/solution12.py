@@ -15,13 +15,13 @@ class Submission12(Submission):
         bp = defaultdict(lambda: defaultdict(lambda: defaultdict()))
 
         # initialization - lex rules
-        for i in range(1,len(sentence)+1):
+        for i in range(1, len(sentence) + 1):
             possible_parents = self.pcfg.reverse_rules[self.pcfg.TERMINAL_RULES][sentence[i - 1]]
             for parent_tag, rule, rule_prob in possible_parents:
                 cky[i][i][parent_tag] = rule_prob
             if not possible_parents:
                 cky[i][i].update(self.pcfg.unknown_rules)
-            
+
             # handle unaries
             added = True
             while added:
@@ -57,7 +57,7 @@ class Submission12(Submission):
                                 if prob > cky[i][i + length][parent_tag]:
                                     cky[i][i + length][parent_tag] = prob
                                     bp[i][i + length][parent_tag] = (parent_tag, rule, s)
-                              
+
                     # handle unaries
                     added = True
                     while added:
@@ -75,7 +75,6 @@ class Submission12(Submission):
                                     cky[i][i + length][parent_tag] = prob
                                     bp[i][i + length][parent_tag] = (parent_tag, rule)
                                     added = True
-               
 
         if 'TOP' not in bp[1][len(sentence)]:
             print("Un-parsable sentence")
@@ -86,7 +85,7 @@ class Submission12(Submission):
 
         return ret
 
-    def tree_to_str(self, bp, sentence, start, end, tag):  
+    def tree_to_str(self, bp, sentence, start, end, tag):
         if start == end and tag not in bp[start][end]:
             return f"({tag} {sentence[start - 1]})"
         if len(bp[start][end][tag]) == 2:  # without split, unary chain

@@ -21,7 +21,7 @@ class PCFG:
             lambda: {
                 self.TERMINAL_RULES: defaultdict(float),
                 self.NON_TERMINAL_RULES: defaultdict(float),
-                self.TOTAL_MARK: 0.0    # relevant only for unnormalized grammar
+                self.TOTAL_MARK: 0.0  # relevant only for unnormalized grammar
             })
         self.reverse_rules = {
             self.TERMINAL_RULES: defaultdict(list),
@@ -29,7 +29,7 @@ class PCFG:
         }
         self.terminals = set()
 
-        if parent_encoding == True:
+        if parent_encoding:
             self.update_rules_with_parent_encoding(training_treebank_file)
         else:
             self.update_rules(training_treebank_file)
@@ -45,7 +45,7 @@ class PCFG:
                     children = node.children
                     if len(children):
                         q.extend([(c, node.tag) for c in children])
-                        prarent_tag = node.tag if parent_node_tag == None else f"{node.tag}@{parent_node_tag}"
+                        prarent_tag = node.tag if parent_node_tag is None else f"{node.tag}@{parent_node_tag}"
                         if len(children) == 1 and len(children[0].children) == 0:
                             derived = tuple(c.tag for c in children)
                             self._add(prarent_tag, derived, True)
@@ -70,27 +70,26 @@ class PCFG:
                             self._add(node.tag, derived, True)
                             self.terminals.add(derived)
                         else:
-                            self._add(node.tag, derived, False)  
-
+                            self._add(node.tag, derived, False)
 
     def normalize_and_smooth(self):
         V = len(self.terminals)
-        delta = 0.1 
+        delta = 0.1
 
         for parent_tag, lst in self.rules.items():
             total = lst[self.TOTAL_MARK]
             total_none_terminals = 0
 
             for rule, count in lst[self.NON_TERMINAL_RULES].items():
-                self.rules[parent_tag][self.NON_TERMINAL_RULES][rule] = count/total
+                self.rules[parent_tag][self.NON_TERMINAL_RULES][rule] = count / total
                 total_none_terminals += count
-            
+
             total_terminals = total - total_none_terminals
             for rule, count in lst[self.TERMINAL_RULES].items():
                 self.rules[parent_tag][self.TERMINAL_RULES][rule] = (count + delta) / (total + (total / total_terminals) * delta * V)
-            
-            if total_terminals != 0: 
-                self.unknown_rules[parent_tag] =  delta / (total + (total / total_terminals) * delta * V)
+
+            if total_terminals != 0:
+                self.unknown_rules[parent_tag] = delta / (total + (total / total_terminals) * delta * V)
             else:
                 self.unknown_rules[parent_tag] = 0
 
@@ -109,18 +108,17 @@ class PCFG:
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 is_terminal = (index == self.TERMINAL_RULES)
                 a_to_b_prob = self.rules[a][self.NON_TERMINAL_RULES][(b,)]
-              
+
                 for b_rule, prob in copy.deepcopy(list(self.rules[b][index].items())):
                     self._add(a, b_rule, is_terminal, count=prob * a_to_b_prob, fix_total=False)
                     if not is_terminal and len(b_rule) == 1:
                         if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
                         else:
-                            self._remove(a, b_rule, False, fix_total=True) # TO DO 
+                            self._remove(a, b_rule, False, fix_total=True)  # TO DO
 
             done.add((a, b))
             self._remove(a, (b,), False, fix_total=False)
-    
 
     def binarize(self):
         # example
@@ -146,13 +144,13 @@ class PCFG:
                     derived = (rule[i], next_parent_tag)
                     if i == 0:
                         self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][derived] = prob
-                        del self.rules[parent_tag][self.NON_TERMINAL_RULES][rule]  
+                        del self.rules[parent_tag][self.NON_TERMINAL_RULES][rule]
                     else:
                         self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][derived] = 1
 
                     curr_parent_tag = next_parent_tag
 
-                self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][(rule[rule_len - 2], rule[rule_len - 1])] = 1    
+                self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][(rule[rule_len - 2], rule[rule_len - 1])] = 1
 
     def reverse(self):
         for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
@@ -169,7 +167,7 @@ class PCFG:
             _sum = 0
             for index in [self.NON_TERMINAL_RULES, self.TERMINAL_RULES]:
                 _sum += sum(v for rule, v in lst[index].items())
-            
+
             if _sum < 1:
                 print(tag)
                 print(_sum)
@@ -188,13 +186,13 @@ class PCFG:
             assert terminal_len_correct, "Terminal rule length isn't 1"
             assert non_terminal_len_correct, "Non Terminal rule length isn't 2"
 
-            #if not isclose(_sum, lst[self.TOTAL_MARK], abs_tol=0.0001):
-                # print('------------- Failed ----------------')
-                # print(_sum)
-                # print(lst[self.TOTAL_MARK])
+            # if not isclose(_sum, lst[self.TOTAL_MARK], abs_tol=0.0001):
+            # print('------------- Failed ----------------')
+            # print(_sum)
+            # print(lst[self.TOTAL_MARK])
 
-                # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
-                # print(tag_rules)
+            # print(f'Calculated sum {_sum}, Saved sum {tag_rules[self.TOTAL_MARK]}, {tag}')
+            # print(tag_rules)
 
         assert res
 

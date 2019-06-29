@@ -20,7 +20,7 @@ class Submission(Spec):
         self.pcfg = PCFG(training_treebank_file, parent_encoding)
 
         self.pcfg.normalize_and_smooth()
-   
+
         self.pcfg.binarize()
 
         self.pcfg.validate()
@@ -29,7 +29,7 @@ class Submission(Spec):
             self.pcfg.percolate()
 
             self.pcfg.validate()
-        
+
         self.pcfg.reverse()
 
         with open(pickle_file, "wb") as f:

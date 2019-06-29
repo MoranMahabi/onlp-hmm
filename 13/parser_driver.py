@@ -8,6 +8,14 @@ from util.tree.get_yield import get_yield
 
 def drive(parser_class_under_test, output_treebank_file='output/predicted.txt'):
     testing_treebank_file = 'data/heb-ctrees.gold'
+    #
+    # with open('data/heb-ctrees.mini', 'w') as mini:
+    #     with open(testing_treebank_file, 'r') as test_set:
+    #         for bracketed_notation_tree in test_set:
+    #             list_tree = list_tree_from_sequence(bracketed_notation_tree)
+    #             tree_yield = get_yield(list_tree)
+    #             if len(tree_yield) < 15:
+    #                 mini.writelines([bracketed_notation_tree])
 
     parser = parser_class_under_test()
 
