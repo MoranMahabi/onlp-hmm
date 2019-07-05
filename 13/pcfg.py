@@ -1,8 +1,6 @@
 import copy
 from collections import defaultdict, deque
 
-from math import isclose
-
 from util.tree.builders import node_tree_from_sequence
 
 
@@ -28,32 +26,13 @@ class PCFG:
             self.NON_TERMINAL_RULES: defaultdict(list),
         }
         self.terminals = set()
+        self.normalized_grammar = False
 
         print(f"Training on {training_treebank_file}...")
         if parent_encoding:
             self.update_rules_with_parent_encoding(training_treebank_file)
         else:
             self.update_rules(training_treebank_file)
-
-    def update_rules_with_parent_encoding(self, training_treebank_file):
-        with open(training_treebank_file, 'r') as train_set:
-            for bracketed_notation_tree in train_set:
-                q = deque()
-                node = node_tree_from_sequence(bracketed_notation_tree)
-                q.append((node, None))
-                while q:
-                    node, parent_node_tag = q.popleft()
-                    children = node.children
-                    if len(children):
-                        q.extend([(c, node.tag) for c in children])
-                        prarent_tag = node.tag if parent_node_tag is None else f"{node.tag}@{parent_node_tag}"
-                        if len(children) == 1 and len(children[0].children) == 0:
-                            derived = tuple(c.tag for c in children)
-                            self._add(prarent_tag, derived, True)
-                            self.terminals.add(derived)
-                        else:
-                            derived = tuple(f"{c.tag}@{node.tag}" for c in children)
-                            self._add(prarent_tag, derived, False)
 
     def update_rules(self, training_treebank_file):
         with open(training_treebank_file, 'r') as train_set:
@@ -72,6 +51,26 @@ class PCFG:
                             self.terminals.add(derived)
                         else:
                             self._add(node.tag, derived, False)
+
+    def update_rules_with_parent_encoding(self, training_treebank_file):  # optimization for question 3
+        with open(training_treebank_file, 'r') as train_set:
+            for bracketed_notation_tree in train_set:
+                q = deque()
+                node = node_tree_from_sequence(bracketed_notation_tree)
+                q.append((node, None))
+                while q:
+                    node, parent_node_tag = q.popleft()
+                    children = node.children
+                    if len(children):
+                        q.extend([(c, node.tag) for c in children])
+                        parent_tag = node.tag if parent_node_tag is None else f"{node.tag}@{parent_node_tag}"
+                        if len(children) == 1 and len(children[0].children) == 0:
+                            derived = tuple(c.tag for c in children)
+                            self._add(parent_tag, derived, True)
+                            self.terminals.add(derived)
+                        else:
+                            derived = tuple(f"{c.tag}@{node.tag}" for c in children)
+                            self._add(parent_tag, derived, False)
 
     def normalize_and_smooth(self):
         V = len(self.terminals)
@@ -93,6 +92,8 @@ class PCFG:
                 self.unknown_rules[parent_tag] = delta / (total + (total / total_terminals) * delta * V)
             else:
                 self.unknown_rules[parent_tag] = 0
+
+            self.normalized_grammar = True
 
     def percolate(self):
         self.percolated = True
@@ -116,7 +117,7 @@ class PCFG:
                         if (a, b_rule[0]) not in done and (a, b_rule[0]) not in worklist:
                             worklist.append((a, b_rule[0]))
                         else:
-                            self._remove(a, b_rule, False, fix_total=True)  # TO DO
+                            self._remove(a, b_rule, False, fix_total=True)
 
             done.add((a, b))
             self._remove(a, (b,), False, fix_total=False)
@@ -153,7 +154,7 @@ class PCFG:
 
                 self.rules[curr_parent_tag][self.NON_TERMINAL_RULES][(rule[rule_len - 2], rule[rule_len - 1])] = 1
 
-    def reverse(self):
+    def reverse(self):  # Keep a retrieval-optimized data structure, indexed by left-children
         for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
             for parent_tag, lst in self.rules.items():
                 for rule, rule_prob in lst[index].items():
@@ -204,9 +205,17 @@ class PCFG:
         self.rules[tag][rule_index][derived] += count
         if fix_total:
             self.rules[tag][self.TOTAL_MARK] += count
+        pass
 
     def _remove(self, parent, derived, is_terminal_rule, fix_total=True):
         rule_index = self.TERMINAL_RULES if is_terminal_rule else self.NON_TERMINAL_RULES
         if fix_total:
-            self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
+            if self.normalized_grammar:
+                total = 1 - self.rules[parent][rule_index][derived]
+                for index in [self.TERMINAL_RULES, self.NON_TERMINAL_RULES]:
+                    lst = self.rules[parent]
+                    for rule, rule_prob in lst[index].items():
+                        self.rules[parent][index][rule] = rule_prob / total
+            else:
+                self.rules[parent][self.TOTAL_MARK] -= self.rules[parent][rule_index][derived]
         del self.rules[parent][rule_index][derived]
